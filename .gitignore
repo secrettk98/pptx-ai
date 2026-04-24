@@ -3,3 +3,8 @@ __pycache__/
 *.pyc
 .env
 storage/
+.continue/
+example.svg
+*.excalidraw
+projects/test_map/*.jpg
+projects/test_map/*.png

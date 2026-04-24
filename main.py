@@ -4,10 +4,16 @@ Main entry point for the PowerPoint AI redesign application.
 
 from pathlib import Path
 from dotenv import load_dotenv
+from processors.json_to_slide import build_slide_from_json
 import logging
 
 from processors.json_to_slide import build_slide_from_json
+from processors.pptx_parser import parse_presentation
 
+build_slide_from_json(
+    json_path=Path("storage/parsed.json"),
+    output_path=Path("storage/rebuilt.pptx"),
+)
 
 def setup_logging() -> None:
     """
@@ -31,8 +37,10 @@ def main() -> None:
     output_path = Path("storage") / "output.pptx"
 
     build_slide_from_json(json_path, output_path)
-
     logging.info(f"Presentation saved to {output_path}")
+
+    parsed_data = parse_presentation(Path("storage") / "osp.pptx", Path("storage"))
+    logging.info(f"Parsed {len(parsed_data['slides'])} slides")
 
 
 if __name__ == "__main__":
