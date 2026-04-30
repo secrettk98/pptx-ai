@@ -6,6 +6,9 @@ from core.logger import get_logger
 from core.config import TEMP_DIR, OUTPUT_DIR
 from parsers.pptx_parser import parse_pptx
 from parsers.slide_renderer import render_slides
+from agents.vision_classifier import classify_all
+from agents.brain import get_strategy, get_briefs
+from agents.designer import design_all
 
 log = get_logger("orchestrator")
 
@@ -38,12 +41,17 @@ def run_redesign(input_pptx: str, accent_color: str = "#0066CC", mode: str = "pi
 
     # Шаг 4: Vision-классификация
     log.info("Step 4/15: Classifying slides...")
-    classifications = []  # TODO: agents.vision_classifier
+    classifications = classify_all(slide_images)
+    for c in classifications:
+        log.info(f"  Slide {c.slide_index}: {c.slide_type} (map={c.has_map}, chart={c.has_chart})")
 
     # Шаг 5: Мозг — стратегия и брифы
     log.info("Step 5/15: Brain — strategy & briefs...")
-    strategy = None  # TODO: agents.brain level 1
-    briefs = []  # TODO: agents.brain level 2
+    strategy = get_strategy(parsed, classifications, accent_color, mode)
+    log.info(f"  Strategy: {strategy.presentation_type}, audience: {strategy.audience}")
+    briefs = get_briefs(parsed, classifications, strategy)
+    for b in briefs:
+        log.info(f"  Brief slide {b.slide_index}: {b.layout_name} — {b.headline[:50]}")
 
     # Шаг 6: Подбор шаблонов
     log.info("Step 6/15: Template matching...")
@@ -55,7 +63,8 @@ def run_redesign(input_pptx: str, accent_color: str = "#0066CC", mode: str = "pi
 
     # Шаг 8: Дизайнер — генерация SVG
     log.info("Step 8/15: Designer — generating SVG...")
-    designed_slides = []  # TODO: agents.designer
+    designed_slides = design_all(briefs, accent_color)
+    log.info(f"  Designed {len(designed_slides)} slides")
 
     # Шаг 9: Реверс-инжиниринг (карты/графики/схемы)
     log.info("Step 9/15: Reverse engineering complex elements...")

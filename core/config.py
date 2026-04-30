@@ -3,6 +3,8 @@
 import os
 import logging
 from pathlib import Path
+from dotenv import load_dotenv
+load_dotenv()
 
 logger = logging.getLogger(__name__)
 
@@ -22,10 +24,10 @@ GEMINI_API_KEY: str = os.getenv("GEMINI_API_KEY", "")
 MAPBOX_ACCESS_TOKEN: str = os.getenv("MAPBOX_ACCESS_TOKEN", "")
 
 # Модели AI
-MODEL_VISION: str = "gemini-2.5-flash"
-MODEL_BRAIN: str = "gemini-3.1-pro"
-MODEL_DESIGNER: str = "gemini-3.1-flash"
-MODEL_INSPECTOR: str = "gemini-2.5-flash"
+MODEL_VISION: str = "gemini-3.1-flash-lite-preview"
+MODEL_BRAIN: str = "gemini-3.1-flash-lite-preview"
+MODEL_DESIGNER: str = "gemini-3.1-flash-lite-preview"
+MODEL_INSPECTOR: str = "gemini-3.1-flash-lite-preview"
 MODEL_CHEAP: str = "gemini-3.1-flash-lite-preview"
 
 # Лимиты
