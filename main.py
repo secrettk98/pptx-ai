@@ -1,46 +1,43 @@
-"""
-Main entry point for the PowerPoint AI redesign application.
-"""
+"""Точка входа приложения PPTX-AI для запуска редизайна презентаций из командной строки."""
 
-from pathlib import Path
-from dotenv import load_dotenv
-from processors.json_to_slide import build_slide_from_json
-import logging
-
-from processors.json_to_slide import build_slide_from_json
-from processors.pptx_parser import parse_presentation
-
-build_slide_from_json(
-    json_path=Path("storage/parsed.json"),
-    output_path=Path("storage/rebuilt.pptx"),
-)
-
-def setup_logging() -> None:
-    """
-    Configure logging with INFO level and specific format.
-    """
-    logging.basicConfig(
-        level=logging.INFO,
-        format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
-    )
+import argparse
+from core.orchestrator import run_redesign
 
 
 def main() -> None:
-    """
-    Main application function that orchestrates the PowerPoint presentation creation.
-    """
-    setup_logging()
-    load_dotenv()
-    logging.info("Application started")
-
-    json_path = Path("assets") / "test_slide.json"
-    output_path = Path("storage") / "output.pptx"
-
-    build_slide_from_json(json_path, output_path)
-    logging.info(f"Presentation saved to {output_path}")
-
-    parsed_data = parse_presentation(Path("storage") / "osp.pptx", Path("storage"))
-    logging.info(f"Parsed {len(parsed_data['slides'])} slides")
+    """Парсит аргументы командной строки и запускает главный пайплайн оркестратора."""
+    parser = argparse.ArgumentParser(description="PPTX-AI: AI-powered presentation redesign")
+    
+    parser.add_argument(
+        "input",
+        type=str,
+        help="Path to input PPTX file"
+    )
+    
+    parser.add_argument(
+        "--accent",
+        type=str,
+        default="#0066CC",
+        help="Accent color hex"
+    )
+    
+    parser.add_argument(
+        "--mode",
+        type=str,
+        default="pitch",
+        choices=["pitch", "report", "training", "commercial"],
+        help="Presentation mode"
+    )
+    
+    args = parser.parse_args()
+    
+    result = run_redesign(
+        input_pptx=args.input,
+        accent_color=args.accent,
+        mode=args.mode
+    )
+    
+    print(f"\nResult: {result}")
 
 
 if __name__ == "__main__":

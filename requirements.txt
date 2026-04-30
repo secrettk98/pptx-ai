@@ -1,7 +1,28 @@
-python-pptx==1.0.2
-python-dotenv
-pandas
-openpyxl
-requests
-polyline
-google-generativeai
+# AI
+google-generativeai>=0.8.6
+pydantic>=2.0
+
+# PPTX
+python-pptx>=0.6.21
+lxml>=4.9
+
+# Images
+Pillow>=10.0
+opencv-python>=4.8
+scikit-image>=0.21
+numpy>=1.24
+
+# PDF conversion
+pdf2image>=1.16
+
+# Graphs
+graphviz>=0.20
+matplotlib>=3.7
+
+# Utils
+python-dotenv>=1.0
+requests>=2.31
+
+# Web (Phase 7)
+# fastapi>=0.100
+# uvicorn>=0.23
