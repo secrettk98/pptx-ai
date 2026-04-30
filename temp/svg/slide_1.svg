@@ -1,0 +1,38 @@
+<svg viewBox="0 0 1280 720" xmlns="http://www.w3.org/2000/svg">
+  <rect width="1280" height="720" fill="#FFFFFF"/>
+  
+  <!-- Headline -->
+  <text x="47" y="85" font-family="Google Sans" font-size="24" font-weight="bold" fill="#1A1A1A">BUILDING A CONTINUOUS TRANSIT BACKBONE</text>
+  
+  <!-- Left Side: Map Area -->
+  <rect x="47" y="120" width="650" height="553" rx="12" fill="#F8F9FA"/>
+  <!-- Schematic Map Elements -->
+  <g stroke-width="4" stroke-linecap="round">
+    <!-- Base Map Lines (Grey) -->
+    <path d="M150 250 L350 250 L450 400 L600 400" stroke="#D1D1D1" fill="none"/>
+    <path d="M250 150 L250 550" stroke="#D1D1D1" fill="none"/>
+    <!-- Proposed Extensions (Accent) -->
+    <path d="M450 400 L550 550" stroke="#0066CC" fill="none"/>
+    <path d="M350 250 L500 250" stroke="#0066CC" fill="none"/>
+  </g>
+  <circle cx="250" cy="250" r="8" fill="#0066CC"/>
+  <circle cx="450" cy="400" r="8" fill="#0066CC"/>
+  <circle cx="550" cy="550" r="8" fill="#0066CC"/>
+  <text x="60" y="650" font-family="Google Sans" font-size="10" fill="#808080">Proposed network expansion (Blue) vs existing infrastructure (Grey)</text>
+
+  <!-- Right Side: Content Cards -->
+  <rect x="727" y="120" width="506" height="260" rx="12" fill="#F8F9FA"/>
+  <text x="751" y="165" font-family="Google Sans" font-size="14" font-weight="bold" fill="#1A1A1A">INTEGRATION STRATEGY</text>
+  <text x="751" y="200" font-family="Google Sans" font-size="12" fill="#1A1A1A" style="line-height: 1.5;">
+    <tspan x="751" dy="0">Integrating existing BRT corridors with new dedicated bus lanes</tspan>
+    <tspan x="751" dy="25">to eliminate bottlenecks and ensure seamless transfers.</tspan>
+  </text>
+
+  <rect x="727" y="400" width="506" height="273" rx="12" fill="#F8F9FA"/>
+  <text x="751" y="445" font-family="Google Sans" font-size="14" font-weight="bold" fill="#1A1A1A">NETWORK IMPACT</text>
+  <text x="751" y="480" font-family="Google Sans" font-size="12" fill="#1A1A1A" style="line-height: 1.5;">
+    <tspan x="751" dy="0">• Focus on network connectivity across urban zones.</tspan>
+    <tspan x="751" dy="30">• Reduced intervals through synchronized scheduling.</tspan>
+    <tspan x="751" dy="30">• Enhanced passenger throughput during peak hours.</tspan>
+  </text>
+</svg>

@@ -9,6 +9,7 @@ from parsers.slide_renderer import render_slides
 from agents.vision_classifier import classify_all
 from agents.brain import get_strategy, get_briefs
 from agents.designer import design_all
+from svg_engine.convert import svg_to_pptx
 
 log = get_logger("orchestrator")
 
@@ -78,9 +79,16 @@ def run_redesign(input_pptx: str, accent_color: str = "#0066CC", mode: str = "pi
     log.info("Step 11/15: SVG post-processing...")
     # TODO: ppt_master.finalize_svg
 
-    # Шаг 12: PPT Master — SVG to PPTX
-    log.info("Step 12/15: PPT Master — SVG to PPTX...")
-    # TODO: ppt_master.svg_to_pptx
+    # Шаг 12: SVG Engine — SVG to PPTX
+    log.info("Step 12/15: SVG Engine — SVG to PPTX...")
+    svg_dir = TEMP_DIR / "svg"
+    svg_files = sorted(svg_dir.glob("*.svg"))
+    if svg_files:
+        output_path = OUTPUT_DIR / f"redesigned_{input_path.name}"
+        svg_to_pptx(svg_files, output_path)
+    else:
+        log.warning("  No SVG files found, skipping conversion")
+        output_path = OUTPUT_DIR / f"redesigned_{input_path.name}"
 
     # Шаг 13: Сборка финального PPTX
     log.info("Step 13/15: Assembling final PPTX...")
@@ -91,7 +99,6 @@ def run_redesign(input_pptx: str, accent_color: str = "#0066CC", mode: str = "pi
     # TODO: agents.inspector
 
     # Шаг 15: Готово
-    output_path = OUTPUT_DIR / f"redesigned_{input_path.name}"
     log.info(f"Step 15/15: Done! Output: {output_path}")
 
     return str(output_path)

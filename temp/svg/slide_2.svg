@@ -1,0 +1,41 @@
+<svg viewBox="0 0 1280 720" xmlns="http://www.w3.org/2000/svg">
+  <rect width="1280" height="720" fill="#FFFFFF"/>
+  
+  <text x="47" y="85" font-family="Google Sans" font-size="24" font-weight="bold" fill="#1A1A1A">2026 MICROMOBILITY ROADMAP</text>
+  
+  <!-- Grid Layout -->
+  <rect x="47" y="130" width="573" height="260" rx="12" fill="#F8F9FA"/>
+  <rect x="660" y="130" width="573" height="260" rx="12" fill="#F8F9FA"/>
+  <rect x="47" y="410" width="573" height="260" rx="12" fill="#F8F9FA"/>
+  <rect x="660" y="410" width="573" height="260" rx="12" fill="#F8F9FA"/>
+
+  <!-- Card 1: Bike Lanes -->
+  <text x="71" y="175" font-family="Google Sans" font-size="14" font-weight="bold" fill="#1A1A1A">INFRASTRUCTURE</text>
+  <text x="71" y="230" font-family="Google Sans" font-size="44" font-weight="bold" fill="#0066CC">55km</text>
+  <text x="71" y="260" font-family="Google Sans" font-size="12" fill="#1A1A1A">New protected bike lanes</text>
+  <text x="71" y="280" font-family="Google Sans" font-size="10" fill="#808080">Expanding connectivity across urban corridors</text>
+
+  <!-- Card 2: Parking -->
+  <text x="684" y="175" font-family="Google Sans" font-size="14" font-weight="bold" fill="#1A1A1A">PARKING HUBS</text>
+  <text x="684" y="230" font-family="Google Sans" font-size="44" font-weight="bold" fill="#0066CC">200+</text>
+  <text x="684" y="260" font-family="Google Sans" font-size="12" fill="#1A1A1A">Dedicated parking zones</text>
+  <text x="684" y="280" font-family="Google Sans" font-size="10" fill="#808080">Reducing sidewalk clutter and improving flow</text>
+
+  <!-- Card 3: Regulation -->
+  <text x="71" y="455" font-family="Google Sans" font-size="14" font-weight="bold" fill="#1A1A1A">REGULATORY</text>
+  <text x="71" y="510" font-family="Google Sans" font-size="44" font-weight="bold" fill="#0066CC">100%</text>
+  <text x="71" y="540" font-family="Google Sans" font-size="12" fill="#1A1A1A">Digital plate compliance</text>
+  <text x="71" y="560" font-family="Google Sans" font-size="10" fill="#808080">Enhanced tracking and identification systems</text>
+
+  <!-- Card 4: Feedback -->
+  <text x="684" y="455" font-family="Google Sans" font-size="14" font-weight="bold" fill="#1A1A1A">USER FEEDBACK</text>
+  <text x="684" y="510" font-family="Google Sans" font-size="44" font-weight="bold" fill="#0066CC">24/7</text>
+  <text x="684" y="540" font-family="Google Sans" font-size="12" fill="#1A1A1A">Automated bot response</text>
+  <text x="684" y="560" font-family="Google Sans" font-size="10" fill="#808080">Real-time issue reporting and resolution</text>
+
+  <!-- Icons (Simplified paths) -->
+  <path d="M550 170 L580 170 L580 200 L550 200 Z" stroke="#0066CC" fill="none" stroke-width="2"/>
+  <path d="M1160 170 L1190 170 L1190 200 L1160 200 Z" stroke="#0066CC" fill="none" stroke-width="2"/>
+  <path d="M550 450 L580 450 L580 480 L550 480 Z" stroke="#0066CC" fill="none" stroke-width="2"/>
+  <path d="M1160 450 L1190 450 L1190 480 L1160 480 Z" stroke="#0066CC" fill="none" stroke-width="2"/>
+</svg>

@@ -1,19 +1,33 @@
 <svg viewBox="0 0 1280 720" xmlns="http://www.w3.org/2000/svg">
   <rect width="1280" height="720" fill="#FFFFFF"/>
   
-  <text x="47" y="90" font-family="Google Sans" font-size="24" font-weight="bold" fill="#1A1A1A">TEST SLIDE</text>
+  <!-- Map Visualization Area -->
+  <path d="M47 47 H1233 V673 H47 Z" fill="#E9ECEF" stroke="#DEE2E6" stroke-width="2"/>
   
-  <rect x="47" y="130" width="1186" height="4" fill="#0066CC"/>
+  <!-- Simplified City Map Zones -->
+  <!-- Served Center -->
+  <circle cx="640" cy="360" r="120" fill="#0066CC" opacity="0.8"/>
+  <!-- Unserved Periphery -->
+  <path d="M640 100 A260 260 0 1 0 640 620 A260 260 0 1 0 640 100 Z M640 240 A120 120 0 1 1 640 480 A120 120 0 1 1 640 240 Z" fill="#FF4D4D" opacity="0.3"/>
+
+  <!-- Overlay Card -->
+  <rect x="80" y="80" width="360" height="280" rx="12" ry="12" fill="#F8F9FA" stroke="#E9ECEF" stroke-width="1"/>
   
-  <rect x="47" y="180" width="580" height="120" rx="12" ry="12" fill="#F8F9FA"/>
-  <text x="71" y="215" font-family="Google Sans" font-size="14" font-weight="bold" fill="#1A1A1A">POINT ONE</text>
-  <text x="71" y="245" font-family="Google Sans" font-size="12" fill="#1A1A1A">Detailed explanation for the first key point goes here.</text>
+  <text x="104" y="125" font-family="Google Sans" font-size="24" font-weight="bold" fill="#1A1A1A">85,000+ RESIDENTS</text>
+  <text x="104" y="155" font-family="Google Sans" font-size="24" font-weight="bold" fill="#0066CC">CURRENTLY UNSERVED</text>
   
-  <rect x="47" y="320" width="580" height="120" rx="12" ry="12" fill="#F8F9FA"/>
-  <text x="71" y="355" font-family="Google Sans" font-size="14" font-weight="bold" fill="#1A1A1A">POINT TWO</text>
-  <text x="71" y="385" font-family="Google Sans" font-size="12" fill="#1A1A1A">Detailed explanation for the second key point goes here.</text>
+  <rect x="104" y="185" width="312" height="1" fill="#DEE2E6"/>
   
-  <circle cx="950" cy="360" r="150" fill="#F8F9FA" stroke="#0066CC" stroke-width="2"/>
-  <text x="950" y="365" font-family="Google Sans" font-size="44" font-weight="bold" fill="#0066CC" text-anchor="middle">01</text>
-  <text x="950" y="400" font-family="Google Sans" font-size="10" fill="#808080" text-anchor="middle">VISUAL HINT</text>
+  <text x="104" y="220" font-family="Google Sans" font-size="14" font-weight="bold" fill="#1A1A1A">High density of disconnected</text>
+  <text x="104" y="238" font-family="Google Sans" font-size="14" font-weight="bold" fill="#1A1A1A">suburban settlements</text>
+  
+  <text x="104" y="275" font-family="Google Sans" font-size="14" font-weight="bold" fill="#1A1A1A">Critical gap in public</text>
+  <text x="104" y="293" font-family="Google Sans" font-size="14" font-weight="bold" fill="#1A1A1A">transit coverage</text>
+
+  <!-- Legend -->
+  <rect x="80" y="580" width="220" height="90" rx="12" ry="12" fill="#F8F9FA" stroke="#E9ECEF" stroke-width="1"/>
+  <circle cx="105" cy="605" r="8" fill="#0066CC"/>
+  <text x="125" y="610" font-family="Google Sans" font-size="12" fill="#1A1A1A">Served Area</text>
+  <circle cx="105" cy="635" r="8" fill="#FF4D4D" opacity="0.5"/>
+  <text x="125" y="640" font-family="Google Sans" font-size="12" fill="#1A1A1A">Unserved Periphery</text>
 </svg>
