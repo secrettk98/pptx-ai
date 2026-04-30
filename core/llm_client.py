@@ -17,7 +17,7 @@ def call_llm(prompt: str, model_name: str, image_path: Optional[str] = None, jso
     """Отправляет текстовый или мультимодальный запрос к LLM с механизмом повторных попыток."""
     log.info(f"LLM call: {model_name}, prompt length: {len(prompt)}")
     
-    generation_config = {"temperature": 0.3}
+    generation_config = {"temperature": 0.3, "max_output_tokens": 8192}
     if json_mode:
         generation_config["response_mime_type"] = "application/json"
         

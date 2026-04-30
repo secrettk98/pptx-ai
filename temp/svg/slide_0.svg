@@ -1,37 +1,25 @@
-<?xml version='1.0' encoding='utf-8'?>
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 720">
-  <rect width="1280" height="720" fill="#FFFFFF" x="47" y="47" />
-  
-  
-  <text x="48" y="88" font-family="Google Sans" font-size="24" font-weight="bold" fill="#1A1A1A">КРИТИЧЕСКИЙ ДЕФИЦИТ ТРАНСПОРТНОГО ОХВАТА</text>
-  
-  
-  <rect x="48" y="120" width="352" height="152" rx="12" fill="#F8F9FA" ry="12" />
-  <text x="72" y="176" font-family="Google Sans" font-size="44" font-weight="bold" fill="#0066CC">85 000+</text>
-  <text x="72" y="208" font-family="Google Sans" font-size="14" font-weight="bold" fill="#1A1A1A">жителей пригорода не имеют доступа</text>
-  <text x="72" y="232" font-family="Google Sans" font-size="14" font-weight="bold" fill="#1A1A1A">к общественному транспорту</text>
+<svg viewBox="0 0 1280 720" xmlns="http://www.w3.org/2000/svg">
+  <!-- Background -->
+  <rect width="1280" height="720" fill="#FFFFFF"/>
 
-  
-  <rect x="48" y="288" width="352" height="80" rx="12" fill="#F8F9FA" ry="12" />
-  <text x="72" y="320" font-family="Google Sans" font-size="14" font-weight="bold" fill="#1A1A1A">Интеграция 16 населенных пунктов</text>
-  <text x="72" y="336" font-family="Google Sans" font-size="12" fill="#808080">Необходима интеграция в единую сеть</text>
+  <!-- Header -->
+  <text x="47" y="90" font-family="Google Sans" font-size="24pt" font-weight="bold" fill="#1A1A1A">TEST SLIDE</text>
+  <line x1="47" y1="110" x2="1233" y2="110" stroke="#E0E0E0" stroke-width="1"/>
 
-  
-  <rect x="440" y="120" width="792" height="496" rx="12" fill="#F8F9FA" ry="12" />
-  
-  
-  <path d="M500 200 Q 600 150 700 250 T 900 300 T 1100 400" stroke="#CCCCCC" stroke-width="2" fill="none" />
-  <circle cx="650" cy="300" r="80" fill="#28A745" fill-opacity="0.6" />
-  <circle cx="900" cy="400" r="120" fill="#DC3545" fill-opacity="0.6" />
-  <circle cx="850" cy="250" r="50" fill="#DC3545" fill-opacity="0.6" />
-  
-  
-  <rect x="460.0" y="560.0" width="200.0" height="40.0" rx="8" fill="#FFFFFF" />
-  <circle cx="480" cy="580" r="8" fill="#28A745" />
-  <text x="496" y="584" font-family="Google Sans" font-size="10" fill="#1A1A1A">Охвачено</text>
-  <circle cx="560" cy="580" r="8" fill="#DC3545" />
-  <text x="576" y="584" font-family="Google Sans" font-size="10" fill="#1A1A1A">Дефицит</text>
+  <!-- Content Area (Centered vertically) -->
+  <g transform="translate(47, 250)">
+    <!-- Point 1 -->
+    <rect x="0" y="0" width="1186" height="100" rx="12" ry="12" fill="#F8F9FA" stroke="#E0E0E0" stroke-width="1"/>
+    <rect x="24" y="32" width="36" height="36" rx="8" ry="8" fill="#0066CC"/>
+    <text x="76" y="58" font-family="Google Sans" font-size="14pt" font-weight="bold" fill="#1A1A1A">Point 1</text>
+    
+    <!-- Point 2 -->
+    <rect x="0" y="132" width="1186" height="100" rx="12" ry="12" fill="#F8F9FA" stroke="#E0E0E0" stroke-width="1"/>
+    <rect x="24" y="164" width="36" height="36" rx="8" ry="8" fill="#0066CC"/>
+    <text x="76" y="190" font-family="Google Sans" font-size="14pt" font-weight="bold" fill="#1A1A1A">Point 2</text>
+  </g>
 
-  
-  <text x="48" y="673" font-family="Google Sans" font-size="10" fill="#808080">Визуализация плотности населения и транспортной доступности региона</text>
+  <!-- Footer -->
+  <text x="47" y="700" font-family="Google Sans" font-size="8pt" fill="#808080">© 2024 Company Name</text>
+  <text x="1215" y="700" font-family="Google Sans" font-size="8pt" fill="#808080">0</text>
 </svg>

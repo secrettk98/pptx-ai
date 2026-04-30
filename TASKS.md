@@ -8,7 +8,7 @@
 - [x] Архитектура + многоагентная система
 - [x] Vision-тест 7 моделей → выбран Gemini 2.5 Flash
 - [x] Финансовая модель + конкурентный анализ
-- [x] layout_code.md + design_code_style1.md (документы есть, в репо ещё не лежат)
+- [x] layout_code.md + design_code_style1.md (в config/)
 - [x] Промпт Мозга + тест Мозг+Дизайнер на 3 слайдах
 - [x] Model routing
 - [x] Map Pipeline — реверс карт (~80%):
@@ -25,63 +25,65 @@
 
 ---
 
-## 📋 ФАЗА 0: Рефакторинг и каркас (СЕЙЧАС, 1-2 дня)
+## 📋 ФАЗА 0: Рефакторинг и каркас ✅ ЗАВЕРШЕНА
 
 ### Структура и контракты
-- [ ] Создать целевую структуру папок: core/, parsers/, agents/, ppt_master/, postprocess/, models/, prompts/, tests/
-- [ ] Создать models/contracts.py — все Pydantic-модели контрактов между агентами
-- [ ] Создать core/llm_client.py — единая обёртка для Gemini (кэш + retry + метрики)
-- [ ] Создать core/config.py — централизованные настройки (модели, таймауты, пути)
-- [ ] Создать core/logger.py — единое логирование
-- [ ] Создать core/orchestrator.py — скелет с заглушками всех 15 шагов
-- [ ] Переписать main.py как тонкую обёртку над orchestrator (старый сломан)
-- [ ] Дополнить requirements.txt: opencv-python, scikit-image, pillow, pydantic, lxml, pdf2image, graphviz
-- [ ] Перенести существующие промпты (CLASSIFIER_PROMPT и др.) в prompts/*.md
+- [x] Создать целевую структуру папок: core/, parsers/, agents/, svg_engine/, postprocess/, models/, prompts/, tests/
+- [x] Создать models/contracts.py — все Pydantic-модели контрактов между агентами
+- [x] Создать core/llm_client.py — единая обёртка для Gemini (retry + экспоненциальная задержка)
+- [x] Создать core/config.py — централизованные настройки (модели, таймауты, пути) + load_dotenv()
+- [x] Создать core/logger.py — единое логирование
+- [x] Создать core/orchestrator.py — скелет с заглушками всех 15 шагов + очистка temp/
+- [x] Переписать main.py как тонкую обёртку над orchestrator (argparse: input, --accent, --mode)
+- [x] Дополнить requirements.txt: opencv-python, scikit-image, pillow, pydantic, lxml, pdf2image, graphviz, matplotlib, python-dotenv, requests
+- [x] Перенести CLASSIFIER_PROMPT в prompts/map_classifier.md
+- [x] Удалить мусор: assets/test_slide.json, reverse/vectorize_clean.py
 
 ---
 
-## 📋 ФАЗА 1: Базовый пайплайн без AI (3-5 дней)
+## 📋 ФАЗА 1: Базовый пайплайн без AI ✅ ЗАВЕРШЕНА
 
 ### Парсер PPTX
-- [ ] parsers/pptx_parser.py — обёртка над pptxtojson (subprocess) ИЛИ python-pptx
-- [ ] Pydantic-модель PresentationStructure
-- [ ] Тест на projects/test_map/test_maps.pptx
+- [x] parsers/pptx_parser.py — python-pptx с рекурсивным обходом групп (_iter_all_shapes)
+- [x] Pydantic-модель PresentationStructure + SlideInfo
+- [x] Тест на projects/test_map/test_maps.pptx (3 слайда, 77 shapes на слайде 0)
 
 ### Конвертер слайдов в JPG
-- [ ] parsers/slide_renderer.py — LibreOffice headless → PDF → JPG (pdf2image)
-- [ ] Альтернатива на Windows: проверить установку LibreOffice
-- [ ] Тест: PPTX → набор JPG в temp/
+- [x] parsers/slide_renderer.py — LibreOffice headless → PDF → JPG (pdf2image)
+- [x] Установлен LibreOffice 26.2 + Poppler 25.12 (добавлен в PATH навсегда)
+- [x] Тест: PPTX → 3 JPG в temp/slides/
 
 ### Точка входа
-- [ ] core/orchestrator.py — реальный вызов парсер → конвертер
-- [ ] CLI: python main.py input.pptx --accent #0066CC
+- [x] core/orchestrator.py — реальный вызов парсер → конвертер
+- [x] CLI: python main.py input.pptx --accent #0066CC --mode pitch
 
 ---
 
-## 📋 ФАЗА 2: AI-агенты (5-7 дней)
+## 📋 ФАЗА 2: AI-агенты ✅ ЗАВЕРШЕНА
 
 ### Vision-классификатор
-- [ ] agents/vision_classifier.py — Gemini 2.5 Flash + промпт
-- [ ] Pydantic SlideClassification (slide_type, has_chart, has_map, has_flowchart, has_table)
-- [ ] prompts/vision_classifier.md
-- [ ] Тест на 3 эталонных PPTX
+- [x] agents/vision_classifier.py — Gemini 2.5 Flash + промпт
+- [x] Pydantic SlideClassification (slide_type, has_chart, has_map, has_flowchart, has_table)
+- [x] prompts/vision_classifier.md
+- [x] classify_all() с time.sleep(3) между вызовами (лимит бесплатной модели)
+- [x] Тест: slide_0=map, slide_1=mixed(map), slide_2=mixed(map) — правильно
 
 ### Мозг (Арт-директор)
-- [ ] agents/brain.py — Gemini 3.1 Pro
-- [ ] Уровень 1: саммари → PresentationStrategy
-- [ ] Уровень 2: пачки слайдов → SlideBrief[]
-- [ ] CoT "30 секунд спикера" + надстройки по типу презентации
-- [ ] prompts/brain_level1.md, brain_level2.md
-- [ ] Pydantic PresentationStrategy, SlideBrief
-- [ ] Тест на 3 эталонных PPTX
+- [x] agents/brain.py — get_strategy() + get_briefs()
+- [x] Уровень 1: саммари → PresentationStrategy
+- [x] Уровень 2: пачки слайдов → SlideBrief[]
+- [x] CoT "30 секунд спикера" + надстройки по типу презентации
+- [x] prompts/brain_level1.md, brain_level2.md
+- [x] Языковая адаптация (IMPORTANT: respond in same language as content)
+- [x] Тест: стратегия + брифы для 3 слайдов — работает
 
 ### Дизайнер
-- [ ] agents/designer.py — Gemini 3.1 Flash
-- [ ] Промпт + design_code_style1.md + few-shot из catalog.json
-- [ ] prompts/designer.md
-- [ ] Pydantic DesignedSlide
-- [ ] Catalog.json — стартовая библиотека из 10-20 эталонных слайдов
-- [ ] Тест: бриф → SVG
+- [x] agents/designer.py — генерация SVG по брифу
+- [x] prompts/designer.md — подключены layout_code.md + design_code_style1.md
+- [x] Pydantic DesignedSlide
+- [x] FALLBACK_SVG при ошибке
+- [ ] Catalog.json — стартовая библиотека эталонных слайдов (TODO)
+- [ ] Тест на 3 эталонных PPTX (качество нестабильно)
 
 ### Подборщик и Тестер шаблонов
 - [ ] agents/template_matcher.py — поиск в catalog.json
@@ -89,21 +91,28 @@
 
 ---
 
-## 📋 ФАЗА 3: PPT Master — критичный блокер
+## 📋 ФАЗА 3: SVG Engine ✅ ЗАВЕРШЕНА
 
-⚠️ **Внимание:** PPT Master упомянут в документации как готовый, но в репозитории его нет. Это БЛОКЕР для финальной сборки.
-
-- [ ] Найти/восстановить svg_to_pptx.py и finalize_svg.py
-- [ ] ИЛИ написать с нуля: SVG → нативные shapes через python-pptx
-- [ ] Поддержка элементов: rect, circle, line, path, text, image, use
-- [ ] Тест: эталонный SVG → PPTX → визуальное соответствие
+- [x] svg_engine/ — скопирован из PPT Master (MIT лицензия, github.com/hugohe3/ppt-master)
+- [x] 13 файлов: drawingml_converter, drawingml_elements, drawingml_paths, drawingml_styles, drawingml_context, drawingml_utils, pptx_builder, pptx_cli, pptx_dimensions, pptx_media, pptx_notes, pptx_narration, pptx_slide_xml
+- [x] svg_engine/convert.py — обёртка svg_to_pptx() для оркестратора
+- [x] Тест: SVG → нативный PPTX, все элементы кликабельные и редактируемые
+- [x] TextBox создаётся правильно (txBox="1", noFill, lIns/tIns/rIns/bIns="0")
 
 ---
 
-## 📋 ФАЗА 4: Постобработка и Инспектор
+## 📋 ФАЗА 4: Постобработка и Инспектор — ⚠️ В РАБОТЕ
 
-### Постобработчик PPTX
-- [ ] postprocess/pptx_polish.py — паддинги, скругления через python-pptx
+### Постпроцессор SVG
+- [x] postprocess/svg_fix.py — snap_to_grid, clamp в рабочую область, выравнивание карточек
+- [ ] Word-wrap для длинного текста в SVG (текст выходит за карточки)
+- [ ] Умнее выравнивание: одинаковые ширины карточек в ряду
+
+### Постпроцессор PPTX
+- [x] postprocess/pptx_fix.py — скругления Rectangle→roundRect(5%), паддинги Pt(0), шрифт Google Sans
+- [x] Рекурсивный обход групп (_iter_all_shapes)
+- [x] TextBox НЕ скругляется (откат roundRect→rect для TextBox)
+- [ ] Умная логика скруглений (не все Rectangle нужно скруглять — только карточки с цветным фоном)
 
 ### Инспектор
 - [ ] agents/inspector.py — Gemini 2.5 Flash
@@ -130,7 +139,7 @@
 - [ ] prompts/chart_extractor.md
 
 ### Реверс блок-схем
-- [ ] reverse/flowchart_reverse.py — Vision AI → JSON-граф → Graphviz → SVG → PPT Master
+- [ ] reverse/flowchart_reverse.py — Vision AI → JSON-граф → Graphviz → SVG → SVG Engine
 - [ ] prompts/flowchart_extractor.md
 - [ ] Установка Graphviz (системная зависимость)
 
@@ -160,25 +169,53 @@
   - Подходы для исследования: SAM 2 + HSV + skeleton-tracing комбо, специализированный U-Net на синтетических данных, Gemini 3.1 Pro через API (не Gemini App)
   - Текущий fallback для типа 6: Nano Banana 2
 
+### Дизайн и качество
+- [ ] Самообучающаяся система шаблонов из примеров в интернете
+- [ ] Подключить API бесплатных иконок (Tabler Icons / Noun Project)
+- [ ] Научить Дизайнера вставлять SVG-иконки
+
 ### Прочее
 - [ ] Жёсткие шаблоны под типовые слайды (титул, разделитель, контакты)
 - [ ] Failover между моделями
 - [ ] Локальные модели для корпоратов (DPA, конфиденциальность)
 - [ ] Маркетинг
-- [ ] Иконки: автоподбор из Noun Project / Tabler Icons
+- [ ] Переход google.generativeai → google.genai
+
+---
+
+## 🔥 БЛОКЕРЫ (решить первыми)
+
+### 1. Промпт Дизайнера слишком длинный
+layout_code.md + design_code_style1.md = ~12KB → бесплатная модель обрезает SVG на выходе.
+Варианты решения:
+- [ ] Сжать документы до самого важного (убрать описания, оставить числа)
+- [ ] Перейти на платную модель с большим контекстом
+- [ ] Разделить: AI выбирает layout → генерит SVG с правилами только этого layout
+- [ ] Кэшировать: типовые layouts → готовые SVG-скелеты, AI заполняет контент
+
+### 2. Качество дизайна нестабильно
+AI не соблюдает сетку, текст выходит за карточки, выравнивание кривое, стиль "как у Gamma".
+Стратегия (обсуждено):
+- Подход А (выбран): Постпроцессор-сетка — AI генерит свободно, Python выравнивает
+- Подход Б (отвергнут): JSON-скелеты с координатами — слишком негибкий
+- design_code_style1.md с точными числами — подключен, но промпт обрезается
+- Few-shot эталоны — только для типовых (титул, разделитель)
+- R&D: самообучение из примеров в интернете
+
+### 3. google.generativeai deprecated
+- [ ] Перейти на google.genai SDK (предупреждение при каждом запуске)
 
 ---
 
 ## 🐛 Известные баги (актуальные)
-- [ ] main.py сломан — импортирует несуществующие processors/* (исправится в Фазе 0)
-- [ ] requirements.txt неполный (исправится в Фазе 0)
-- [ ] map_pipeline.py: шаги 4-5 — TODO заглушки (исправится в Фазе 5)
-- [ ] PPT Master отсутствует в репозитории (Фаза 3)
-- [ ] SVG text не переносится автоматически (выход за карточки) — для постобработки
-- [ ] Скругления пропадают при разгруппировке shape — для постобработки
-- [ ] Дефолтные паддинги PowerPoint — для постобработки
-- [ ] data-icon без finalize_svg.py — для PPT Master
-- [ ] Внешние изображения не находятся при сборке — для PPT Master
+- [ ] Промпт Дизайнера обрезается на бесплатной модели (SVG не догенерируется)
+- [ ] SVG text не переносится автоматически (выход за карточки)
+- [ ] Постпроцессор скругляет ВСЕ Rectangle (нужна умная фильтрация по цвету фона)
+- [ ] time.sleep(3) между API-вызовами (лимит бесплатной модели → прогон ~8 мин)
+- [ ] google.generativeai deprecated warning при каждом запуске
+- [ ] map_pipeline.py: шаги 4-5 — TODO заглушки (Фаза 5)
+- [ ] data-icon без finalize_svg.py (для SVG Engine)
+- [ ] Внешние изображения не находятся при сборке SVG Engine
 
 ---
 
@@ -190,6 +227,7 @@
 - Большинство классических CV-подходов между картами разных стилей (ORB, SIFT, matchTemplate, аффинное преобразование) — работает только Edge Matching
 - vtracer, pypotrace, EasyOCR, keras-ocr на Windows — не ставятся
 - pip install trace-skeleton — нужен Visual Studio Build Tools
+- Подход Б для сетки (JSON-скелеты) — отвергнут как слишком негибкий
 
 ---
 

@@ -44,12 +44,13 @@ def design_slide(brief: SlideBrief, accent_color: str) -> DesignedSlide:
             .replace("{slide_index}", str(brief.slide_index))
             .replace("{layout_name}", brief.layout_name)
             .replace("{headline}", brief.headline)
-            .replace("{points}", "\n".join([f"- {p}" for p in brief.points]))
-            .replace("{has_map}", str(brief.has_map))
-            .replace("{has_chart}", str(brief.has_chart))
+            .replace("{key_points}", ", ".join(brief.key_points))
+            .replace("{visual_hint}", brief.visual_hint)
+            .replace("{priority_order}", ", ".join(brief.priority_order))
             .replace("{layout_code}", layout_code)
             .replace("{design_code}", design_code)
         )
+
 
         log.info(f"  Designing slide {brief.slide_index}...")
         raw_svg = call_llm(prompt=prompt, model_name=MODEL_DESIGNER)
@@ -94,10 +95,12 @@ if __name__ == "__main__":
         slide_index=0,
         layout_name="text_focus",
         headline="TEST SLIDE",
-        points=["Point 1", "Point 2"],
-        has_map=False,
-        has_chart=False,
+        key_points=["Point 1", "Point 2"],
+        visual_hint="Simple layout",
+        remove=[],
+        priority_order=["headline", "points"],
     )
+
     res = design_slide(test_brief, "#0066CC")
     print(f"SVG length: {len(res.svg_code)}")
     print(f"First 200 chars: {res.svg_code[:200]}")
