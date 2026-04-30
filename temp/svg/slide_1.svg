@@ -1,38 +1,37 @@
-<svg viewBox="0 0 1280 720" xmlns="http://www.w3.org/2000/svg">
-  <rect width="1280" height="720" fill="#FFFFFF"/>
+<?xml version='1.0' encoding='utf-8'?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 720">
+  <rect width="1280" height="720" fill="#FFFFFF" x="47" y="47" />
   
-  <!-- Headline -->
-  <text x="47" y="85" font-family="Google Sans" font-size="24" font-weight="bold" fill="#1A1A1A">BUILDING A CONTINUOUS TRANSIT BACKBONE</text>
   
-  <!-- Left Side: Map Area -->
-  <rect x="47" y="120" width="650" height="553" rx="12" fill="#F8F9FA"/>
-  <!-- Schematic Map Elements -->
-  <g stroke-width="4" stroke-linecap="round">
-    <!-- Base Map Lines (Grey) -->
-    <path d="M150 250 L350 250 L450 400 L600 400" stroke="#D1D1D1" fill="none"/>
-    <path d="M250 150 L250 550" stroke="#D1D1D1" fill="none"/>
-    <!-- Proposed Extensions (Accent) -->
-    <path d="M450 400 L550 550" stroke="#0066CC" fill="none"/>
-    <path d="M350 250 L500 250" stroke="#0066CC" fill="none"/>
-  </g>
-  <circle cx="250" cy="250" r="8" fill="#0066CC"/>
-  <circle cx="450" cy="400" r="8" fill="#0066CC"/>
-  <circle cx="550" cy="550" r="8" fill="#0066CC"/>
-  <text x="60" y="650" font-family="Google Sans" font-size="10" fill="#808080">Proposed network expansion (Blue) vs existing infrastructure (Grey)</text>
-
-  <!-- Right Side: Content Cards -->
-  <rect x="727" y="120" width="506" height="260" rx="12" fill="#F8F9FA"/>
-  <text x="751" y="165" font-family="Google Sans" font-size="14" font-weight="bold" fill="#1A1A1A">INTEGRATION STRATEGY</text>
-  <text x="751" y="200" font-family="Google Sans" font-size="12" fill="#1A1A1A" style="line-height: 1.5;">
-    <tspan x="751" dy="0">Integrating existing BRT corridors with new dedicated bus lanes</tspan>
-    <tspan x="751" dy="25">to eliminate bottlenecks and ensure seamless transfers.</tspan>
-  </text>
-
-  <rect x="727" y="400" width="506" height="273" rx="12" fill="#F8F9FA"/>
-  <text x="751" y="445" font-family="Google Sans" font-size="14" font-weight="bold" fill="#1A1A1A">NETWORK IMPACT</text>
-  <text x="751" y="480" font-family="Google Sans" font-size="12" fill="#1A1A1A" style="line-height: 1.5;">
-    <tspan x="751" dy="0">• Focus on network connectivity across urban zones.</tspan>
-    <tspan x="751" dy="30">• Reduced intervals through synchronized scheduling.</tspan>
-    <tspan x="751" dy="30">• Enhanced passenger throughput during peak hours.</tspan>
-  </text>
+  <text x="48" y="88" font-family="Google Sans" font-size="24" font-weight="bold" fill="#1A1A1A">СОЗДАНИЕ НЕПРЕРЫВНОГО КАРКАСА BUS LANE</text>
+  
+  
+  <rect x="48" y="120" width="648" height="552" rx="12" fill="#F8F9FA" ry="12" />
+  <path d="M150 200 L300 250 L450 200 L600 350 M300 250 L300 550 M450 200 L450 500" stroke="#0066CC" stroke-width="8" stroke-linecap="round" fill="none" />
+  <circle cx="300" cy="250" r="10" fill="#0066CC" />
+  <circle cx="450" cy="200" r="10" fill="#0066CC" />
+  <circle cx="300" cy="550" r="10" fill="#0066CC" />
+  
+  
+  <rect x="736" y="120" width="496" height="248" rx="12" fill="#F8F9FA" ry="12" />
+  <text x="760" y="160" font-family="Google Sans" font-size="14" font-weight="bold" fill="#1A1A1A">ПРИОРИТЕТ И СВЯЗАННОСТЬ</text>
+  <text x="760" y="192" font-family="Google Sans" font-size="12" fill="#1A1A1A">Приоритет общественному транспорту через развитие сети БРТ.</text>
+  <text x="760" y="224" font-family="Google Sans" font-size="12" fill="#1A1A1A">Связанность линий для сокращения интервалов движения.</text>
+  
+  
+  <rect x="736" y="392" width="496" height="280" rx="12" fill="#F8F9FA" ry="12" />
+  <text x="760" y="432" font-family="Google Sans" font-size="14" font-weight="bold" fill="#1A1A1A">ЭФФЕКТ</text>
+  
+  
+  <circle cx="810" cy="520" r="30" fill="#E1EFFF" />
+  <text x="792" y="528" font-family="Google Sans" font-size="24" fill="#0066CC">🕒</text>
+  <text x="776" y="576" font-family="Google Sans" font-size="10" fill="#808080" text-anchor="middle">Экономия времени</text>
+  
+  <circle cx="983" cy="520" r="30" fill="#E1EFFF" />
+  <text x="968" y="528" font-family="Google Sans" font-size="24" fill="#0066CC">🚌</text>
+  <text x="984" y="576" font-family="Google Sans" font-size="10" fill="#808080" text-anchor="middle">Рост пассажиропотока</text>
+  
+  <circle cx="1156" cy="520" r="30" fill="#E1EFFF" />
+  <text x="1144" y="528" font-family="Google Sans" font-size="24" fill="#0066CC">📈</text>
+  <text x="1152" y="576" font-family="Google Sans" font-size="10" fill="#808080" text-anchor="middle">Надежность сети</text>
 </svg>

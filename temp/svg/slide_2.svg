@@ -1,41 +1,32 @@
-<svg viewBox="0 0 1280 720" xmlns="http://www.w3.org/2000/svg">
-  <rect width="1280" height="720" fill="#FFFFFF"/>
+<?xml version='1.0' encoding='utf-8'?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 720">
+  <rect width="1280" height="720" fill="#FFFFFF" x="47" y="47" />
   
-  <text x="47" y="85" font-family="Google Sans" font-size="24" font-weight="bold" fill="#1A1A1A">2026 MICROMOBILITY ROADMAP</text>
   
-  <!-- Grid Layout -->
-  <rect x="47" y="130" width="573" height="260" rx="12" fill="#F8F9FA"/>
-  <rect x="660" y="130" width="573" height="260" rx="12" fill="#F8F9FA"/>
-  <rect x="47" y="410" width="573" height="260" rx="12" fill="#F8F9FA"/>
-  <rect x="660" y="410" width="573" height="260" rx="12" fill="#F8F9FA"/>
+  <text x="48" y="88" font-family="Google Sans" font-size="24" font-weight="bold" fill="#1A1A1A">РАЗВИТИЕ МИКРОМОБИЛЬНОСТИ К 2026 ГОДУ</text>
+  
+  
+  <rect x="48" y="144" width="360" height="224" rx="12" fill="#F8F9FA" ry="12" />
+  <text x="72" y="200" font-family="Google Sans" font-size="44" font-weight="bold" fill="#0066CC">55 км</text>
+  <text x="72" y="240" font-family="Google Sans" font-size="14" font-weight="bold" fill="#1A1A1A">Новых велополос</text>
+  <text x="72" y="272" font-family="Google Sans" font-size="12" fill="#1A1A1A" width="312">Расширение сети безопасных маршрутов для передвижения на велосипедах.</text>
+  <path d="M71 310 L100 310 M71 320 L90 320" stroke="#0066CC" stroke-width="4" stroke-linecap="round" />
 
-  <!-- Card 1: Bike Lanes -->
-  <text x="71" y="175" font-family="Google Sans" font-size="14" font-weight="bold" fill="#1A1A1A">INFRASTRUCTURE</text>
-  <text x="71" y="230" font-family="Google Sans" font-size="44" font-weight="bold" fill="#0066CC">55km</text>
-  <text x="71" y="260" font-family="Google Sans" font-size="12" fill="#1A1A1A">New protected bike lanes</text>
-  <text x="71" y="280" font-family="Google Sans" font-size="10" fill="#808080">Expanding connectivity across urban corridors</text>
+  
+  <rect x="464" y="144" width="360" height="224" rx="12" fill="#F8F9FA" ry="12" />
+  <text x="480" y="200" font-family="Google Sans" font-size="44" font-weight="bold" fill="#0066CC">200</text>
+  <text x="480" y="240" font-family="Google Sans" font-size="14" font-weight="bold" fill="#1A1A1A">Парковочных хабов</text>
+  <text x="480" y="272" font-family="Google Sans" font-size="12" fill="#1A1A1A" width="312">Специализированные зоны для упорядоченной парковки самокатов.</text>
+  <circle cx="490" cy="315" r="8" fill="none" stroke="#0066CC" stroke-width="2" />
+  <circle cx="510" cy="315" r="8" fill="none" stroke="#0066CC" stroke-width="2" />
 
-  <!-- Card 2: Parking -->
-  <text x="684" y="175" font-family="Google Sans" font-size="14" font-weight="bold" fill="#1A1A1A">PARKING HUBS</text>
-  <text x="684" y="230" font-family="Google Sans" font-size="44" font-weight="bold" fill="#0066CC">200+</text>
-  <text x="684" y="260" font-family="Google Sans" font-size="12" fill="#1A1A1A">Dedicated parking zones</text>
-  <text x="684" y="280" font-family="Google Sans" font-size="10" fill="#808080">Reducing sidewalk clutter and improving flow</text>
+  
+  <rect x="872" y="144" width="360" height="224" rx="12" fill="#F8F9FA" ry="12" />
+  <text x="896" y="176" font-family="Google Sans" font-size="14" font-weight="bold" fill="#1A1A1A">Цифровизация контроля</text>
+  <text x="896" y="208" font-family="Google Sans" font-size="12" fill="#1A1A1A" width="312">Внедрение систем мониторинга и оперативной обратной связи от пользователей.</text>
+  <rect x="897.0" y="250.0" width="40.0" height="40.0" rx="8" fill="#E1EFFF" />
+  <path d="M907 260 L927 260 M907 270 L927 270 M907 280 L917 280" stroke="#0066CC" stroke-width="2" stroke-linecap="round" />
 
-  <!-- Card 3: Regulation -->
-  <text x="71" y="455" font-family="Google Sans" font-size="14" font-weight="bold" fill="#1A1A1A">REGULATORY</text>
-  <text x="71" y="510" font-family="Google Sans" font-size="44" font-weight="bold" fill="#0066CC">100%</text>
-  <text x="71" y="540" font-family="Google Sans" font-size="12" fill="#1A1A1A">Digital plate compliance</text>
-  <text x="71" y="560" font-family="Google Sans" font-size="10" fill="#808080">Enhanced tracking and identification systems</text>
-
-  <!-- Card 4: Feedback -->
-  <text x="684" y="455" font-family="Google Sans" font-size="14" font-weight="bold" fill="#1A1A1A">USER FEEDBACK</text>
-  <text x="684" y="510" font-family="Google Sans" font-size="44" font-weight="bold" fill="#0066CC">24/7</text>
-  <text x="684" y="540" font-family="Google Sans" font-size="12" fill="#1A1A1A">Automated bot response</text>
-  <text x="684" y="560" font-family="Google Sans" font-size="10" fill="#808080">Real-time issue reporting and resolution</text>
-
-  <!-- Icons (Simplified paths) -->
-  <path d="M550 170 L580 170 L580 200 L550 200 Z" stroke="#0066CC" fill="none" stroke-width="2"/>
-  <path d="M1160 170 L1190 170 L1190 200 L1160 200 Z" stroke="#0066CC" fill="none" stroke-width="2"/>
-  <path d="M550 450 L580 450 L580 480 L550 480 Z" stroke="#0066CC" fill="none" stroke-width="2"/>
-  <path d="M1160 450 L1190 450 L1190 480 L1160 480 Z" stroke="#0066CC" fill="none" stroke-width="2"/>
+  
+  <text x="48" y="673" font-family="Google Sans" font-size="10" fill="#808080">Слайд 2 | Стратегический план развития городской инфраструктуры</text>
 </svg>

@@ -10,6 +10,8 @@ from agents.vision_classifier import classify_all
 from agents.brain import get_strategy, get_briefs
 from agents.designer import design_all
 from svg_engine.convert import svg_to_pptx
+from postprocess.svg_fix import fix_all_svgs
+from postprocess.pptx_fix import fix_pptx
 
 log = get_logger("orchestrator")
 
@@ -75,9 +77,10 @@ def run_redesign(input_pptx: str, accent_color: str = "#0066CC", mode: str = "pi
     log.info("Step 10/15: Artist — generating images...")
     # TODO: agents.artist
 
-    # Шаг 11: Постобработка SVG
+    # Шаг 11: SVG post-processing
     log.info("Step 11/15: SVG post-processing...")
-    # TODO: ppt_master.finalize_svg
+    svg_dir = TEMP_DIR / "svg"
+    fix_all_svgs(svg_dir)
 
     # Шаг 12: SVG Engine — SVG to PPTX
     log.info("Step 12/15: SVG Engine — SVG to PPTX...")
@@ -93,6 +96,11 @@ def run_redesign(input_pptx: str, accent_color: str = "#0066CC", mode: str = "pi
     # Шаг 13: Сборка финального PPTX
     log.info("Step 13/15: Assembling final PPTX...")
     # TODO: сборка
+
+    # Шаг 13а: PPTX post-processing
+    log.info("Step 13/15: PPTX post-processing...")
+    if output_path.exists():
+        fix_pptx(output_path)
 
     # Шаг 14: Инспектор
     log.info("Step 14/15: Inspector — quality check...")

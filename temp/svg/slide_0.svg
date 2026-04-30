@@ -1,33 +1,37 @@
-<svg viewBox="0 0 1280 720" xmlns="http://www.w3.org/2000/svg">
-  <rect width="1280" height="720" fill="#FFFFFF"/>
+<?xml version='1.0' encoding='utf-8'?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 720">
+  <rect width="1280" height="720" fill="#FFFFFF" x="47" y="47" />
   
-  <!-- Map Visualization Area -->
-  <path d="M47 47 H1233 V673 H47 Z" fill="#E9ECEF" stroke="#DEE2E6" stroke-width="2"/>
   
-  <!-- Simplified City Map Zones -->
-  <!-- Served Center -->
-  <circle cx="640" cy="360" r="120" fill="#0066CC" opacity="0.8"/>
-  <!-- Unserved Periphery -->
-  <path d="M640 100 A260 260 0 1 0 640 620 A260 260 0 1 0 640 100 Z M640 240 A120 120 0 1 1 640 480 A120 120 0 1 1 640 240 Z" fill="#FF4D4D" opacity="0.3"/>
+  <text x="48" y="88" font-family="Google Sans" font-size="24" font-weight="bold" fill="#1A1A1A">КРИТИЧЕСКИЙ ДЕФИЦИТ ТРАНСПОРТНОГО ОХВАТА</text>
+  
+  
+  <rect x="48" y="120" width="352" height="152" rx="12" fill="#F8F9FA" ry="12" />
+  <text x="72" y="176" font-family="Google Sans" font-size="44" font-weight="bold" fill="#0066CC">85 000+</text>
+  <text x="72" y="208" font-family="Google Sans" font-size="14" font-weight="bold" fill="#1A1A1A">жителей пригорода не имеют доступа</text>
+  <text x="72" y="232" font-family="Google Sans" font-size="14" font-weight="bold" fill="#1A1A1A">к общественному транспорту</text>
 
-  <!-- Overlay Card -->
-  <rect x="80" y="80" width="360" height="280" rx="12" ry="12" fill="#F8F9FA" stroke="#E9ECEF" stroke-width="1"/>
   
-  <text x="104" y="125" font-family="Google Sans" font-size="24" font-weight="bold" fill="#1A1A1A">85,000+ RESIDENTS</text>
-  <text x="104" y="155" font-family="Google Sans" font-size="24" font-weight="bold" fill="#0066CC">CURRENTLY UNSERVED</text>
-  
-  <rect x="104" y="185" width="312" height="1" fill="#DEE2E6"/>
-  
-  <text x="104" y="220" font-family="Google Sans" font-size="14" font-weight="bold" fill="#1A1A1A">High density of disconnected</text>
-  <text x="104" y="238" font-family="Google Sans" font-size="14" font-weight="bold" fill="#1A1A1A">suburban settlements</text>
-  
-  <text x="104" y="275" font-family="Google Sans" font-size="14" font-weight="bold" fill="#1A1A1A">Critical gap in public</text>
-  <text x="104" y="293" font-family="Google Sans" font-size="14" font-weight="bold" fill="#1A1A1A">transit coverage</text>
+  <rect x="48" y="288" width="352" height="80" rx="12" fill="#F8F9FA" ry="12" />
+  <text x="72" y="320" font-family="Google Sans" font-size="14" font-weight="bold" fill="#1A1A1A">Интеграция 16 населенных пунктов</text>
+  <text x="72" y="336" font-family="Google Sans" font-size="12" fill="#808080">Необходима интеграция в единую сеть</text>
 
-  <!-- Legend -->
-  <rect x="80" y="580" width="220" height="90" rx="12" ry="12" fill="#F8F9FA" stroke="#E9ECEF" stroke-width="1"/>
-  <circle cx="105" cy="605" r="8" fill="#0066CC"/>
-  <text x="125" y="610" font-family="Google Sans" font-size="12" fill="#1A1A1A">Served Area</text>
-  <circle cx="105" cy="635" r="8" fill="#FF4D4D" opacity="0.5"/>
-  <text x="125" y="640" font-family="Google Sans" font-size="12" fill="#1A1A1A">Unserved Periphery</text>
+  
+  <rect x="440" y="120" width="792" height="496" rx="12" fill="#F8F9FA" ry="12" />
+  
+  
+  <path d="M500 200 Q 600 150 700 250 T 900 300 T 1100 400" stroke="#CCCCCC" stroke-width="2" fill="none" />
+  <circle cx="650" cy="300" r="80" fill="#28A745" fill-opacity="0.6" />
+  <circle cx="900" cy="400" r="120" fill="#DC3545" fill-opacity="0.6" />
+  <circle cx="850" cy="250" r="50" fill="#DC3545" fill-opacity="0.6" />
+  
+  
+  <rect x="460.0" y="560.0" width="200.0" height="40.0" rx="8" fill="#FFFFFF" />
+  <circle cx="480" cy="580" r="8" fill="#28A745" />
+  <text x="496" y="584" font-family="Google Sans" font-size="10" fill="#1A1A1A">Охвачено</text>
+  <circle cx="560" cy="580" r="8" fill="#DC3545" />
+  <text x="576" y="584" font-family="Google Sans" font-size="10" fill="#1A1A1A">Дефицит</text>
+
+  
+  <text x="48" y="673" font-family="Google Sans" font-size="10" fill="#808080">Визуализация плотности населения и транспортной доступности региона</text>
 </svg>

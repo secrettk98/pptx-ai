@@ -2,8 +2,9 @@
 
 import time
 from pathlib import Path
+
 from core.llm_client import call_llm
-from core.config import MODEL_DESIGNER, PROMPTS_DIR, TEMP_DIR
+from core.config import MODEL_DESIGNER, PROMPTS_DIR, TEMP_DIR, CONFIG_DIR
 from core.logger import get_logger
 from models.contracts import SlideBrief, DesignedSlide
 
@@ -22,44 +23,56 @@ def design_slide(brief: SlideBrief, accent_color: str) -> DesignedSlide:
     try:
         prompt_path = PROMPTS_DIR / "designer.md"
         prompt_template = prompt_path.read_text(encoding="utf-8")
-        
-        prompt = prompt_template.format(
-            accent_color=accent_color,
-            slide_index=str(brief.slide_index),
-            layout_name=brief.layout_name,
-            headline=brief.headline,
-            key_points=", ".join(brief.key_points),
-            visual_hint=brief.visual_hint,
-            priority_order=", ".join(brief.priority_order)
+
+        # Читаем Layout Code и Design Code
+        layout_code_path = CONFIG_DIR / "layout_code.md"
+        design_code_path = CONFIG_DIR / "design_code_style1.md"
+        layout_code = (
+            layout_code_path.read_text(encoding="utf-8")
+            if layout_code_path.exists()
+            else ""
         )
-        
-        log.info(f"Designing slide {brief.slide_index}: {brief.layout_name}")
-        raw = call_llm(prompt=prompt, model_name=MODEL_DESIGNER)
-        
-        # Очистка разметки Markdown
-        raw = raw.replace("```svg", "").replace("```xml", "").replace("```", "").strip()
-        
-        # Поиск границ SVG тега
-        start_idx = raw.find("<svg")
-        if start_idx == -1:
-            log.error(f"SVG тег не найден в ответе для слайда {brief.slide_index}")
-            svg_code = FALLBACK_SVG
-        else:
-            end_idx = raw.find("</svg>")
-            if end_idx != -1:
-                svg_code = raw[start_idx : end_idx + 6]
-            else:
-                svg_code = raw[start_idx:]
-        
-        # Сохранение результата
+        design_code = (
+            design_code_path.read_text(encoding="utf-8")
+            if design_code_path.exists()
+            else ""
+        )
+
+        # Подготовка промпта через замену плейсхолдеров
+        prompt = (
+            prompt_template.replace("{accent_color}", accent_color)
+            .replace("{slide_index}", str(brief.slide_index))
+            .replace("{layout_name}", brief.layout_name)
+            .replace("{headline}", brief.headline)
+            .replace("{points}", "\n".join([f"- {p}" for p in brief.points]))
+            .replace("{has_map}", str(brief.has_map))
+            .replace("{has_chart}", str(brief.has_chart))
+            .replace("{layout_code}", layout_code)
+            .replace("{design_code}", design_code)
+        )
+
+        log.info(f"  Designing slide {brief.slide_index}...")
+        raw_svg = call_llm(prompt=prompt, model_name=MODEL_DESIGNER)
+
+        # Очистка от markdown блоков
+        svg_code = raw_svg.strip()
+        if "```svg" in svg_code:
+            start_idx = svg_code.find("<svg")
+            end_idx = svg_code.rfind("</svg>") + 6
+            svg_code = svg_code[start_idx:end_idx]
+        elif "```" in svg_code:
+            start_idx = svg_code.find("<svg")
+            svg_code = svg_code[start_idx:]
+
+        # Сохранение результата во временную папку
         svg_dir = TEMP_DIR / "svg"
         svg_dir.mkdir(parents=True, exist_ok=True)
         svg_path = svg_dir / f"slide_{brief.slide_index}.svg"
         svg_path.write_text(svg_code, encoding="utf-8")
-        
+
         log.info(f"  Saved: {svg_path.name}")
         return DesignedSlide(slide_index=brief.slide_index, svg_code=svg_code)
-        
+
     except Exception as e:
         log.error(f"Ошибка при проектировании слайда {brief.slide_index}: {e}")
         return DesignedSlide(slide_index=brief.slide_index, svg_code=FALLBACK_SVG)
@@ -81,12 +94,10 @@ if __name__ == "__main__":
         slide_index=0,
         layout_name="text_focus",
         headline="TEST SLIDE",
-        key_points=["Point one", "Point two"],
-        visual_hint="Simple layout",
-        remove=[],
-        priority_order=["headline", "points"]
+        points=["Point 1", "Point 2"],
+        has_map=False,
+        has_chart=False,
     )
-    
-    test_result = design_slide(test_brief, "#0066CC")
-    print(f"SVG length: {len(test_result.svg_code)}")
-    print(f"First 200 chars: {test_result.svg_code[:200]}")
+    res = design_slide(test_brief, "#0066CC")
+    print(f"SVG length: {len(res.svg_code)}")
+    print(f"First 200 chars: {res.svg_code[:200]}")
