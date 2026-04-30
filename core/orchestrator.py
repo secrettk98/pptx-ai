@@ -1,8 +1,11 @@
 """Главный оркестратор пайплайна редизайна презентаций."""
 
+import shutil
 from pathlib import Path
 from core.logger import get_logger
 from core.config import TEMP_DIR, OUTPUT_DIR
+from parsers.pptx_parser import parse_pptx
+from parsers.slide_renderer import render_slides
 
 log = get_logger("orchestrator")
 
@@ -10,6 +13,13 @@ log = get_logger("orchestrator")
 def run_redesign(input_pptx: str, accent_color: str = "#0066CC", mode: str = "pitch") -> str:
     """Запускает полный цикл редизайна презентации и возвращает путь к результату."""
     input_path = Path(input_pptx)
+    
+    # Очистка temp перед запуском
+    if TEMP_DIR.exists():
+        shutil.rmtree(TEMP_DIR)
+    TEMP_DIR.mkdir(exist_ok=True)
+    log.info("Temp directory cleaned")
+    
     log.info("=== PPTX-AI Redesign Pipeline ===")
     log.info(f"Input: {input_path.name}, Accent: {accent_color}, Mode: {mode}")
 
@@ -18,11 +28,13 @@ def run_redesign(input_pptx: str, accent_color: str = "#0066CC", mode: str = "pi
 
     # Шаг 2: Парсинг PPTX
     log.info("Step 2/15: Parsing PPTX...")
-    parsed = None  # TODO: parsers.pptx_parser
+    parsed = parse_pptx(input_path)
+    log.info(f"  Found {parsed.slide_count} slides")
 
     # Шаг 3: Конвертация слайдов в JPG
     log.info("Step 3/15: Converting slides to JPG...")
-    slide_images = []  # TODO: parsers.slide_renderer
+    slide_images = render_slides(input_path)
+    log.info(f"  Rendered {len(slide_images)} images")
 
     # Шаг 4: Vision-классификация
     log.info("Step 4/15: Classifying slides...")
