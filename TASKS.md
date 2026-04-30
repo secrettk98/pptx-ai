@@ -16,20 +16,29 @@
 ## Фаза 1: Доказательство киллер-фич (ТЕКУЩАЯ)
 
 ### Карты — Map Pipeline v2.1
-- [x] Gemini Vision → JSON (регион, города, маршруты, зоны) — РАБОТАЕТ
-- [x] Nominatim + viewbox → геокодирование → GPS — РАБОТАЕТ
-- [x] Mapbox Static Images → чистая подложка — РАБОТАЕТ
-- [x] OpenCV HSV (S≥80) → маски маршрутов — РАБОТАЕТ
-- [x] Skan + Douglas-Peucker → SVG polyline — РАБОТАЕТ
-- [x] map_classifier.py — Gemini → тип карты 1-13 — РАБОТАЕТ
-- [x] map_layer_splitter.py — PPTX → background + objects — РАБОТАЕТ
-- [x] map_pipeline.py — оркестратор — РАБОТАЕТ (шаги 4-5 заглушки)
-- [x] map_background.py — mapbox + keep стратегии — РАБОТАЕТ
-- [x] Исследование совмещения карт — найден рабочий подход (Nominatim bbox + 5% padding)
-- [ ] map_objects_redesign.py — пересадка объектов по GPS↔пиксель формуле ← СЛЕДУЮЩИЙ
-- [ ] map_vectorizer.py — рефакторинг vectorize_clean.py
-- [ ] map_assembler.py — финальная сборка
-- [ ] Обновить map_classifier.py и map_background.py: модель → gemini-3.1-flash-lite-preview
+- [x] Gemini Vision → JSON (регион, города, маршруты, зоны)
+- [x] Nominatim + viewbox → геокодирование → GPS
+- [x] Mapbox Static Images → чистая подложка
+- [x] OpenCV HSV (S≥80) → маски маршрутов (для простых случаев)
+- [x] map_classifier.py
+- [x] map_layer_splitter.py (с crop fix + разгруппировкой)
+- [x] map_pipeline.py
+- [x] map_background.py — Edge Matching + точный bbox
+- [x] map_objects_redesign.py
+- [x] map_assembler.py (без дублирующего crop)
+- [x] Кэширование geo_cache.json
+- [x] Nominatim двухпроходный
+- [x] CROP FIX: подложка обрезается по crop в splitter перед replace_background
+- [x] Разгруппировка слайда — _iter_all_shapes рекурсивно разворачивает группы
+- [R&D, отложено] map_vectorizer.py — векторизация маршрутов с пересечениями.
+  Провалились: skan, trace_skeleton (LingDong), гибридный подход с общей маской,
+  per-route extraction со склейкой по углам, эрозия маски, Vision LLM (Gemini App
+  и на шумной карте, и на чистой HSV-маске). Корни: на пересечениях скелетон
+  искривляется, Gemini ставит точки с погрешностью 100+px. План на R&D после MVP:
+  SAM 2 + HSV + skeleton-tracing комбо, либо специализированный U-Net на синтетике,
+  либо Gemini 3.1 Pro через API (не через App). Пока тип карты 6 (сложный растр)
+  использует fallback Nano Banana 2.
+- [ ] Карты без подписей — region_hint от Мозга
 - [ ] Тест на 20-30 слайдах — цель 80%
 
 ### Диаграммы — НЕ НАЧАТО
@@ -82,6 +91,13 @@
 - [ ] Дефолтные паддинги PowerPoint
 - [ ] data-icon без finalize_svg.py
 - [ ] Внешние изображения не найдены при сборке
+
+## Что НЕ работает (проверено, НЕ использовать)
+- skeleton-tracing (LingDong) для маршрутов с пересечениями — кривизна на концах фрагментов
+- Per-route extraction через гибрид общая-маска + голосование по цвету
+- Эрозия маски перед скелетонизацией — изгибы остаются
+- Gemini Pro в браузере (Gemini App) для извлечения polyline маршрутов — точки не совпадают (погрешность сотни пикселей)
+- Подача чистой HSV-маски одного цвета в Gemini App — не помогает, точки всё равно неточные
 
 ## Эталонные файлы
 - SmartGas.pptx (7сл, оранжевый) | Welcome.pptx (18сл, синий) | AI UDP.pptx (9сл, синий)
