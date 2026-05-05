@@ -1,45 +1,65 @@
-"""Единая обёртка для вызова Gemini API с поддержкой изображений и автоматическими повторами."""
+"""Единая обёртка для вызова Gemini API через Vertex AI с поддержкой изображений и повторами."""
 
-import json
 import time
+import logging
 from typing import Optional
+from pathlib import Path
+
 from PIL import Image
-import google.generativeai as genai
+from google import genai
+from google.genai import types
 
-from core.config import GEMINI_API_KEY, LLM_TIMEOUT, LLM_MAX_RETRIES
-from core.logger import get_logger
+from core.config import LLM_TIMEOUT, LLM_MAX_RETRIES
 
-log = get_logger(__name__)
-genai.configure(api_key=GEMINI_API_KEY)
+logger = logging.getLogger(__name__)
 
 
 def call_llm(prompt: str, model_name: str, image_path: Optional[str] = None, json_mode: bool = False) -> str:
     """Отправляет текстовый или мультимодальный запрос к LLM с механизмом повторных попыток."""
-    log.info(f"LLM call: {model_name}, prompt length: {len(prompt)}")
+    logger.info(f"Начинаем вызов LLM (Vertex AI): {model_name}, длина промпта: {len(prompt)}")
     
-    generation_config = {"temperature": 0.3, "max_output_tokens": 8192}
+    client = genai.Client(
+        vertexai=True,
+        project="powermagic",
+        location="us-central1"
+    )
+    
+    config_kwargs = {
+        "temperature": 0.3,
+        "max_output_tokens": 65536,
+    }
+    
     if json_mode:
-        generation_config["response_mime_type"] = "application/json"
+        config_kwargs["response_mime_type"] = "application/json"
+        logger.info("Активирован режим JSON-ответа")
         
-    model = genai.GenerativeModel(model_name, generation_config=generation_config)
+    config = types.GenerateContentConfig(**config_kwargs)
+    contents = [prompt]
     
-    content = prompt
     if image_path is not None:
         try:
-            image = Image.open(image_path)
-            content = [prompt, image]
+            img_path = Path(image_path)
+            logger.info(f"Чтение изображения из файла: {img_path}")
+            image = Image.open(img_path)
+            contents = [prompt, image]
         except Exception as e:
-            log.error(f"Ошибка при загрузке изображения {image_path}: {e}")
+            logger.error(f"Ошибка при загрузке изображения {image_path}: {e}")
             raise
             
     for attempt in range(LLM_MAX_RETRIES):
         try:
-            response = model.generate_content(content)
+            logger.info(f"Попытка отправки запроса {attempt + 1} из {LLM_MAX_RETRIES}")
+            response = client.models.generate_content(
+                model=model_name,
+                contents=contents,
+                config=config
+            )
             text = response.text
-            log.info(f"LLM response length: {len(text)}")
+            logger.info(f"Получен успешный ответ LLM, длина текста: {len(text)}")
             return text
         except Exception as e:
-            log.warning(f"LLM error (attempt {attempt + 1}): {e}")
+            logger.warning(f"Ошибка LLM (попытка {attempt + 1}): {e}")
             time.sleep(2 ** attempt)
             
+    logger.error(f"LLM не ответила после {LLM_MAX_RETRIES} попыток")
     raise RuntimeError(f"LLM failed after {LLM_MAX_RETRIES} attempts")

@@ -1,0 +1,192 @@
+<svg width="1920" height="1080" viewBox="0 0 1920 1080" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- Фон -->
+  <rect width="1920" height="1080" fill="#F1F5F9"/>
+  
+  <!-- Шапка -->
+  <rect width="1920" height="100" fill="white"/>
+  <rect y="100" width="1920" height="4" fill="#B12028"/>
+  
+  <!-- Логотип (Векторная имитация) -->
+  <text x="60" y="65" font-family="Montserrat, sans-serif" font-size="32" font-weight="900" fill="#24325B">Fly</text>
+  <text x="115" y="65" font-family="Montserrat, sans-serif" font-size="32" font-weight="900" fill="#B12028">Arystan</text>
+  <line x1="280" y1="35" x2="280" y2="75" stroke="#E2E8F0" stroke-width="2"/>
+  <text x="310" y="65" font-family="Montserrat, sans-serif" font-size="28" font-weight="800" fill="#24325B" letter-spacing="2">ОПЕРАЦИОННАЯ СВОДКА</text>
+  
+  <!-- Бейдж Май -->
+  <rect x="1720" y="30" width="160" height="40" rx="20" fill="#24325B"/>
+  <text x="1800" y="57" font-family="Montserrat, sans-serif" font-size="16" font-weight="700" fill="white" text-anchor="middle">МАЙ 2024</text>
+
+  <!-- БЛОК 1: ПУНКТУАЛЬНОСТЬ (OTP) -->
+  <text x="60" y="160" font-family="Montserrat, sans-serif" font-size="24" font-weight="800" fill="#24325B">📈 ПУНКТУАЛЬНОСТЬ (OTP)</text>
+  <rect x="60" y="180" width="1080" height="380" rx="20" fill="white" stroke="#E2E8F0"/>
+  
+  <!-- Март -->
+  <circle cx="180" cy="300" r="60" fill="none" stroke="#E2E8F0" stroke-width="12"/>
+  <path d="M 180 240 A 60 60 0 1 1 125 325" fill="none" stroke="#24325B" stroke-width="12" stroke-linecap="round"/>
+  <text x="180" y="308" font-family="Montserrat, sans-serif" font-size="22" font-weight="900" fill="#24325B" text-anchor="middle">81%</text>
+  <text x="260" y="290" font-family="Montserrat, sans-serif" font-size="14" font-weight="700" fill="#94A3B8">МАРТ (ИТОГ)</text>
+  <text x="260" y="315" font-family="Montserrat, sans-serif" font-size="18" font-weight="800" fill="#16A34A">81.0% ✅</text>
+
+  <!-- Апрель -->
+  <rect x="450" y="210" width="380" height="180" rx="15" fill="#EFF6FF" stroke="#24325B" stroke-width="2"/>
+  <circle cx="540" cy="300" r="60" fill="none" stroke="#CBD5E1" stroke-width="12"/>
+  <path d="M 540 240 A 60 60 0 1 1 540 360 A 60 60 0 0 1 485 325" fill="none" stroke="#B12028" stroke-width="12" stroke-linecap="round"/>
+  <text x="540" y="308" font-family="Montserrat, sans-serif" font-size="22" font-weight="900" fill="#B12028" text-anchor="middle">90%</text>
+  <text x="620" y="250" font-family="Montserrat, sans-serif" font-size="14" font-weight="700" fill="#24325B">АПРЕЛЬ (ИТОГ) 🚀</text>
+  <text x="620" y="280" font-family="Montserrat, sans-serif" font-size="28" font-weight="900" fill="#B12028">90.0%</text>
+  <text x="620" y="300" font-family="Montserrat, sans-serif" font-size="11" fill="#64748B">При таргете 89%</text>
+  <rect x="620" y="325" width="180" height="25" rx="5" fill="#24325B"/>
+  <text x="710" y="342" font-family="Courier, monospace" font-size="10" fill="white" text-anchor="middle">■■■■■■■■■■ 100%</text>
+
+  <!-- Май Цель -->
+  <rect x="860" y="210" width="250" height="180" rx="15" fill="#F8FAFC" stroke="#E2E8F0"/>
+  <text x="880" y="240" font-family="Montserrat, sans-serif" font-size="14" font-weight="700" fill="#94A3B8">МАЙ (ЦЕЛЬ)</text>
+  <text x="880" y="270" font-family="Montserrat, sans-serif" font-size="14" fill="#1E293B">Таргет компании: <tspan font-weight="800">87%</tspan></text>
+  <text x="880" y="300" font-family="Montserrat, sans-serif" font-size="14" font-weight="800" fill="#B12028">ВНУТРЕННЯЯ: 90%+</text>
+  <rect x="880" y="315" width="210" height="2" fill="#FACC15"/>
+  <text x="880" y="335" font-family="Montserrat, sans-serif" font-size="10" fill="#64748B">Удержать планку апреля</text>
+
+  <!-- Мотивационный блок -->
+  <rect x="85" y="415" width="1030" height="120" rx="15" fill="#24325B"/>
+  <text x="120" y="460" font-family="Montserrat, sans-serif" font-size="13" fill="white" font-weight="500">
+    <tspan x="120" dy="0">🌟 Коллеги, 90% — это показатель профессионализма. Мы доказали, что можем работать четко даже при высоких требованиях.</tspan>
+    <tspan x="120" dy="22">В мае нагрузка не снизится, но я верю, что мы сохраним этот темп. Берегите себя, помогайте коллегам на сменах.</tspan>
+    <tspan x="120" dy="22">Май будет жарким, но мы справимся! ✈️💙</tspan>
+  </text>
+  <rect x="860" y="440" width="230" height="70" rx="10" fill="#B12028" transform="rotate(-2 860 440)"/>
+  <text x="975" y="475" font-family="Montserrat, sans-serif" font-size="16" font-weight="900" fill="white" text-anchor="middle" transform="rotate(-2 860 440)">ПОГНАЛИ В МАЙ!<tspan x="975" dy="20">ТОЛЬКО 90%+! 🔥</tspan></text>
+
+  <!-- БЛОК 2: ЭФФЕКТИВНОСТЬ СМЕН -->
+  <text x="1180" y="160" font-family="Montserrat, sans-serif" font-size="24" font-weight="800" fill="#24325B">📊 ЭФФЕКТИВНОСТЬ СМЕН</text>
+  <rect x="1180" y="180" width="680" height="380" rx="20" fill="white" stroke="#E2E8F0"/>
+  
+  <!-- Заголовки таблицы -->
+  <text x="1210" y="215" font-family="Montserrat, sans-serif" font-size="12" font-weight="800" fill="#94A3B8">СОТРУДНИК</text>
+  <text x="1400" y="215" font-family="Montserrat, sans-serif" font-size="12" font-weight="800" fill="#94A3B8">ПОСАДКА/РЕГ</text>
+  <text x="1580" y="215" font-family="Montserrat, sans-serif" font-size="12" font-weight="800" fill="#94A3B8">БЛАГОДАРНОСТИ / СТАТУС</text>
+  <line x1="1200" y1="230" x2="1840" y2="230" stroke="#F1F5F9" stroke-width="2"/>
+
+  <!-- Айдана -->
+  <rect x="1200" y="245" width="640" height="65" rx="10" fill="#F8FAFC"/>
+  <rect x="1200" y="245" width="4" height="65" fill="#24325B"/>
+  <text x="1220" y="283" font-family="Montserrat, sans-serif" font-size="14" font-weight="700" fill="#24325B">👤 АЙДАНА</text>
+  <rect x="1380" y="265" width="60" height="24" rx="5" fill="#DCFCE7"/>
+  <text x="1410" y="281" font-family="Montserrat, sans-serif" font-size="10" font-weight="800" fill="#166534" text-anchor="middle">🟢 0</text>
+  <rect x="1450" y="265" width="60" height="24" rx="5" fill="#DCFCE7"/>
+  <text x="1480" y="281" font-family="Montserrat, sans-serif" font-size="10" font-weight="800" fill="#166534" text-anchor="middle">🟢 0</text>
+  <text x="1580" y="273" font-family="Montserrat, sans-serif" font-size="18" font-weight="900" fill="#B12028">15</text>
+  <text x="1580" y="293" font-family="Montserrat, sans-serif" font-size="10" font-weight="600" fill="#64748B">Хранители точности 💎</text>
+
+  <!-- Кайрат -->
+  <rect x="1200" y="320" width="640" height="65" rx="10" fill="#F8FAFC"/>
+  <rect x="1200" y="320" width="4" height="65" fill="#FACC15"/>
+  <text x="1220" y="358" font-family="Montserrat, sans-serif" font-size="14" font-weight="700" fill="#24325B">👤 КАЙРАТ</text>
+  <rect x="1380" y="340" width="60" height="24" rx="5" fill="#FEF9C3"/>
+  <text x="1410" y="356" font-family="Montserrat, sans-serif" font-size="10" font-weight="800" fill="#854D0E" text-anchor="middle">🟨 4</text>
+  <rect x="1450" y="340" width="60" height="24" rx="5" fill="#DCFCE7"/>
+  <text x="1480" y="356" font-family="Montserrat, sans-serif" font-size="10" font-weight="800" fill="#166534" text-anchor="middle">🟢 0</text>
+  <text x="1580" y="348" font-family="Montserrat, sans-serif" font-size="18" font-weight="900" fill="#B12028">15</text>
+  <text x="1580" y="368" font-family="Montserrat, sans-serif" font-size="10" font-weight="600" fill="#64748B">Мастера сервиса ✨</text>
+
+  <!-- Нурзат -->
+  <rect x="1200" y="395" width="640" height="65" rx="10" fill="#F8FAFC"/>
+  <rect x="1200" y="395" width="4" height="65" fill="#FACC15"/>
+  <text x="1220" y="433" font-family="Montserrat, sans-serif" font-size="14" font-weight="700" fill="#24325B">👤 НУРЗАТ</text>
+  <rect x="1380" y="415" width="60" height="24" rx="5" fill="#DCFCE7"/>
+  <text x="1410" y="431" font-family="Montserrat, sans-serif" font-size="10" font-weight="800" fill="#166534" text-anchor="middle">🟢 0</text>
+  <rect x="1450" y="415" width="60" height="24" rx="5" fill="#FEF9C3"/>
+  <text x="1480" y="431" font-family="Montserrat, sans-serif" font-size="10" font-weight="800" fill="#854D0E" text-anchor="middle">🟨 8</text>
+  <text x="1580" y="423" font-family="Montserrat, sans-serif" font-size="18" font-weight="900" fill="#B12028">12</text>
+  <text x="1580" y="443" font-family="Montserrat, sans-serif" font-size="10" font-weight="600" fill="#64748B">Лидеры вовлеченности 🌟</text>
+
+  <!-- Жанна -->
+  <rect x="1200" y="470" width="640" height="65" rx="10" fill="#F8FAFC"/>
+  <rect x="1200" y="470" width="4" height="65" fill="#24325B"/>
+  <text x="1220" y="508" font-family="Montserrat, sans-serif" font-size="14" font-weight="700" fill="#24325B">👤 ЖАННА</text>
+  <rect x="1380" y="490" width="60" height="24" rx="5" fill="#DCFCE7"/>
+  <text x="1410" y="506" font-family="Montserrat, sans-serif" font-size="10" font-weight="800" fill="#166534" text-anchor="middle">🟢 0</text>
+  <rect x="1450" y="490" width="60" height="24" rx="5" fill="#DCFCE7"/>
+  <text x="1480" y="506" font-family="Montserrat, sans-serif" font-size="10" font-weight="800" fill="#166534" text-anchor="middle">🟢 0</text>
+  <text x="1580" y="498" font-family="Montserrat, sans-serif" font-size="18" font-weight="900" fill="#24325B">7</text>
+  <text x="1580" y="518" font-family="Montserrat, sans-serif" font-size="10" font-weight="600" fill="#64748B">Стабильный прогресс 📈</text>
+
+  <!-- БЛОК 3: РЕПОРТЫ (IQSMS) -->
+  <text x="60" y="620" font-family="Montserrat, sans-serif" font-size="24" font-weight="800" fill="#24325B">📋 РЕПОРТЫ (IQSMS) <tspan font-weight="500" font-size="16" fill="#64748B"> / Разбор ключевых ошибок апреля</tspan></text>
+  
+  <!-- Репорт 1 -->
+  <rect x="60" y="640" width="340" height="400" rx="20" fill="white" stroke="#E2E8F0"/>
+  <rect x="60" y="640" width="340" height="8" rx="4" fill="#B12028"/>
+  <circle cx="365" cy="675" r="15" fill="#FEE2E2"/>
+  <text x="365" y="680" font-family="Montserrat, sans-serif" font-size="12" font-weight="900" fill="#B12028" text-anchor="middle">1</text>
+  <text x="85" y="685" font-family="Montserrat, sans-serif" font-size="15" font-weight="800" fill="#24325B">Засадка (рейс 7062)</text>
+  <text x="85" y="715" font-family="Montserrat, sans-serif" font-size="12" fill="#475569">
+    <tspan x="85" dy="0">Пассажирка (бабушка) с рейса</tspan>
+    <tspan x="85" dy="20">в Уральск попала на другой борт.</tspan>
+  </text>
+  <rect x="80" y="770" width="300" height="245" rx="10" fill="#F0FDF4"/>
+  <text x="100" y="800" font-family="Montserrat, sans-serif" font-size="13" font-weight="800" fill="#166534">РЕШЕНИЕ:</text>
+  <text x="100" y="825" font-family="Montserrat, sans-serif" font-size="12" fill="#14532D">
+    <tspan x="100" dy="0">Усиливаем бдительность!</tspan>
+    <tspan x="100" dy="20">Внимательно проверяем не</tspan>
+    <tspan x="100" dy="20">только фамилию, но и номер</tspan>
+    <tspan x="100" dy="20">рейса/направление на</tspan>
+    <tspan x="100" dy="20">посадочном талоне при</tspan>
+    <tspan x="100" dy="20">сканировании.</tspan>
+  </text>
+
+  <!-- Репорт 2 -->
+  <rect x="420" y="640" width="340" height="400" rx="20" fill="white" stroke="#E2E8F0"/>
+  <rect x="420" y="640" width="340" height="8" rx="4" fill="#B12028"/>
+  <circle cx="725" cy="675" r="15" fill="#FEE2E2"/>
+  <text x="725" y="680" font-family="Montserrat, sans-serif" font-size="12" font-weight="900" fill="#B12028" text-anchor="middle">2</text>
+  <text x="445" y="685" font-family="Montserrat, sans-serif" font-size="15" font-weight="800" fill="#24325B">Авиабезопасность</text>
+  <text x="445" y="715" font-family="Montserrat, sans-serif" font-size="12" fill="#475569">
+    <tspan x="445" dy="0">БП открыли дверь самолета без</tspan>
+    <tspan x="445" dy="20">участия наземного агента и ПС,</tspan>
+    <tspan x="445" dy="20">ссылаясь на стуки.</tspan>
+  </text>
+  <rect x="440" y="770" width="300" height="245" rx="10" fill="#F0FDF4"/>
+  <text x="460" y="800" font-family="Montserrat, sans-serif" font-size="13" font-weight="800" fill="#166534">РЕШЕНИЕ:</tspan>
+  <text x="460" y="825" font-family="Montserrat, sans-serif" font-size="12" fill="#14532D">
+    <tspan x="460" dy="0">Напоминаю регламент — дверь</tspan>
+    <tspan x="460" dy="20">открывается только после</tspan>
+    <tspan x="460" dy="20">команды наземного персонала.</tspan>
+    <tspan x="460" dy="20">Провести беседу с экипажами о</tspan>
+    <tspan x="460" dy="20">недопустимости открытия дверей</tspan>
+    <tspan x="460" dy="20">до прибытия всех служб.</tspan>
+  </text>
+
+  <!-- Репорт 3 -->
+  <rect x="780" y="640" width="340" height="400" rx="20" fill="white" stroke="#E2E8F0"/>
+  <rect x="780" y="640" width="340" height="8" rx="4" fill="#B12028"/>
+  <circle cx="1085" cy="675" r="15" fill="#FEE2E2"/>
+  <text x="1085" y="680" font-family="Montserrat, sans-serif" font-size="12" font-weight="900" fill="#B12028" text-anchor="middle">3</text>
+  <text x="805" y="685" font-family="Montserrat, sans-serif" font-size="15" font-weight="800" fill="#24325B">Багаж (рейс 7315) 🛑</text>
+  <text x="805" y="715" font-family="Montserrat, sans-serif" font-size="12" fill="#475569">
+    <tspan x="805" dy="0">Ошибка Рамп-агента в подсчете.</tspan>
+    <tspan x="805" dy="20">Благодаря внимательности борт</tspan>
+    <tspan x="805" dy="20">был закрыт вовремя.</tspan>
+  </text>
+  <rect x="800" y="770" width="300" height="245" rx="10" fill="#F0FDF4"/>
+  <text x="820" y="800" font-family="Montserrat, sans-serif" font-size="13" font-weight="800" fill="#166534">РЕШЕНИЕ:</text>
+  <text x="820" y="825" font-family="Montserrat, sans-serif" font-size="12" fill="#14532D">
+    <tspan x="820" dy="0">Доверяй, но проверяй!</tspan>
+    <tspan x="820" dy="20">Наши супервайзеры в очередной</tspan>
+    <tspan x="820" dy="20">раз спасли рейс от задержки.</tspan>
+    <tspan x="820" dy="20">Отличная работа!</tspan>
+  </text>
+
+  <!-- ОТ МЕНЯ ЛИЧНО -->
+  <rect x="1180" y="620" width="680" height="420" rx="20" fill="#B12028"/>
+  <path d="M 1220 660 Q 1210 660 1210 675 L 1210 685 Q 1210 700 1225 700" fill="none" stroke="white" stroke-width="4" opacity="0.3"/>
+  <text x="1220" y="680" font-family="Montserrat, sans-serif" font-size="24" font-weight="900" fill="#FACC15">📢 ОТ МЕНЯ ЛИЧНО:</text>
+  <text x="1220" y="730" font-family="Montserrat, sans-serif" font-size="20" font-weight="600" fill="white">
+    <tspan x="1220" dy="0">Смена Кайрата и Айданы, вы сегодня</tspan>
+    <tspan x="1220" dy="35">лидеры по благодарностям! 15 отзывов</tspan>
+    <tspan x="1220" dy="35">за месяц — это прекрасный показатель того,</tspan>
+    <tspan x="1220" dy="35">что скорость не мешает качеству.</tspan>
+    <tspan x="1220" dy="55">Смена Айданы и Жанны, ваши «нулевые»</tspan>
+    <tspan x="1220" dy="35">задержки — это то, на чем держатся</tspan>
+    <tspan x="1220" dy="35">наши 90% OTP. Молодцы! 😊</tspan>
+  </text>
+</svg>

@@ -57,13 +57,10 @@ def design_slide(brief: SlideBrief, accent_color: str) -> DesignedSlide:
 
         # Очистка от markdown блоков
         svg_code = raw_svg.strip()
-        if "```svg" in svg_code:
-            start_idx = svg_code.find("<svg")
-            end_idx = svg_code.rfind("</svg>") + 6
-            svg_code = svg_code[start_idx:end_idx]
-        elif "```" in svg_code:
-            start_idx = svg_code.find("<svg")
-            svg_code = svg_code[start_idx:]
+        start_idx = svg_code.find("<svg")
+        end_idx = svg_code.rfind("</svg>")
+        if start_idx != -1 and end_idx != -1:
+            svg_code = svg_code[start_idx:end_idx + 6]
 
         # Сохранение результата во временную папку
         svg_dir = TEMP_DIR / "svg"

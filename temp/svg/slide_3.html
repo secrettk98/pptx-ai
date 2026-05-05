@@ -1,0 +1,342 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FlyArystan Dashboard - Visual</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        fly: {
+                            blue: '#24325B', 
+                            red: '#B12028',  
+                            gray: '#F8FAFC'  
+                        }
+                    },
+                    fontFamily: {
+                        sans: ['Montserrat', 'sans-serif'],
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        body {
+            margin: 0;
+            background-color: #111827; /* Темный фон вне слайда */
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            overflow: hidden;
+            font-family: 'Montserrat', sans-serif;
+        }
+        #presentation-wrapper {
+            width: 100vw;
+            height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+        }
+        /* Жесткая фиксация пропорций 16:9 (1920x1080) */
+        #dashboard-container {
+            width: 1920px;
+            height: 1080px;
+            background-color: #F1F5F9; /* Светло-серый фон дашборда */
+            position: absolute;
+            transform-origin: center center;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+        }
+        
+        /* Стили для круговых диаграмм */
+        .circle-chart {
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+        }
+        .circle-inner {
+            background-color: white;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-direction: column;
+        }
+        
+        .dash-card {
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03);
+            border: 1px solid #E2E8F0;
+        }
+    </style>
+</head>
+<body>
+
+    <div id="presentation-wrapper">
+        <div id="dashboard-container">
+            
+            <!-- Шапка Дашборда -->
+            <header class="h-[100px] bg-white flex justify-between items-center px-12 border-b-4 border-fly-red shrink-0 relative z-10 shadow-sm">
+                <div class="flex items-center gap-6">
+                    <img src="image_180fc9.png" alt="FlyArystan" class="h-16 object-contain">
+                    <div class="h-10 w-px bg-gray-300"></div>
+                    <h1 class="text-3xl font-black text-fly-blue tracking-wider uppercase">ОПЕРАЦИОННАЯ СВОДКА</h1>
+                </div>
+                <div class="bg-fly-blue text-white px-6 py-2 rounded-full font-bold text-xl shadow-inner">
+                    МАЙ 2024
+                </div>
+            </header>
+
+            <!-- Основная сетка дашборда -->
+            <div class="flex-1 p-8 grid grid-cols-12 gap-8 bg-[#F8FAFC]">
+                
+                <!-- ВЕРХНИЙ РЯД -->
+                <!-- 1. ПУНКТУАЛЬНОСТЬ (OTP) - 7 колонок -->
+                <div class="col-span-7 flex flex-col gap-4">
+                    <h2 class="text-2xl font-bold text-fly-blue flex items-center gap-3 uppercase">
+                        <span class="text-3xl">📈</span> ПУНКТУАЛЬНОСТЬ (OTP)
+                    </h2>
+                    
+                    <div class="dash-card p-6 flex flex-col gap-6 flex-1">
+                        <!-- Виджеты процентов -->
+                        <div class="flex justify-between gap-6">
+                            <!-- Март -->
+                            <div class="flex-1 bg-gray-50 rounded-xl p-4 border border-gray-200 flex items-center gap-4">
+                                <div class="circle-chart w-24 h-24" style="background: conic-gradient(#24325B 81%, #E2E8F0 0);">
+                                    <div class="circle-inner w-[76px] h-[76px]">
+                                        <span class="text-2xl font-black text-fly-blue">81%</span>
+                                    </div>
+                                </div>
+                                <div>
+                                    <p class="font-bold text-gray-500 uppercase tracking-wide text-sm">🎯 МАРТ (Итог)</p>
+                                    <p class="text-green-600 font-bold text-lg mt-1 flex items-center gap-1">81.0% ✅</p>
+                                </div>
+                            </div>
+
+                            <!-- Апрель (Акцент) -->
+                            <div class="flex-[1.2] bg-blue-50 rounded-xl p-4 border-2 border-fly-blue flex items-center gap-4 relative overflow-hidden">
+                                <div class="absolute -right-4 -top-4 text-fly-blue opacity-5 text-8xl font-black">90</div>
+                                <div class="circle-chart w-24 h-24 shrink-0" style="background: conic-gradient(#B12028 90%, #CBD5E1 0);">
+                                    <div class="circle-inner w-[76px] h-[76px]">
+                                        <span class="text-2xl font-black text-fly-red">90%</span>
+                                    </div>
+                                </div>
+                                <div class="z-10">
+                                    <p class="font-bold text-fly-blue uppercase tracking-wide text-sm">📈 АПРЕЛЬ (Итог) 🚀</p>
+                                    <p class="font-black text-2xl text-fly-red leading-none mt-1">90.0% <span class="text-xs text-gray-500 font-normal">(При таргете 89%)</span></p>
+                                    <div class="mt-2 text-xs font-mono bg-fly-blue text-white px-2 py-1 rounded inline-block">
+                                        Прогресс: ■■■■■■■■■■ (ЦЕЛЬ ДОСТИГНУТА!)
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Май -->
+                            <div class="flex-1 bg-gray-50 rounded-xl p-4 border border-gray-200 flex flex-col justify-center">
+                                <p class="font-bold text-gray-500 uppercase tracking-wide text-sm mb-2">🎯 МАЙ (ЦЕЛЬ)</p>
+                                <div class="flex justify-between items-end border-b border-gray-200 pb-1 mb-1">
+                                    <span class="text-sm text-gray-600">Таргет компании:</span>
+                                    <span class="font-bold text-lg">87%</span>
+                                </div>
+                                <div class="flex justify-between items-end">
+                                    <span class="text-sm font-bold text-fly-red">⚠️ НАША ЦЕЛЬ:</span>
+                                    <span class="font-black text-xl text-fly-red">min 90%</span>
+                                </div>
+                                <p class="text-[10px] text-gray-500 leading-tight mt-1">Нам нужно удержать эту планку, чтобы компенсировать недовыполнение в начале года.</p>
+                            </div>
+                        </div>
+
+                        <!-- Мотивация -->
+                        <div class="bg-gradient-to-r from-fly-blue to-[#1a2543] rounded-xl p-5 text-white flex gap-5 items-center">
+                            <div class="text-5xl">🌟</div>
+                            <div class="flex-1 text-sm font-medium leading-relaxed">
+                                Коллеги, 90% — это показатель профессионализма. Мы доказали, что можем работать четко даже при высоких требованиях. В мае нагрузка не снизится, но я верю, что мы сохраним этот темп. Берегите себя, помогайте коллегам на сменах. Май будет жарким, но мы справимся! ✈️💙
+                            </div>
+                            <div class="bg-fly-red text-white font-black text-xl px-6 py-4 rounded-lg transform rotate-2 shadow-lg whitespace-nowrap">
+                                ПОГНАЛИ В МАЙ!<br>ТОЛЬКО НА 90%+! 🔥
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 2. ЭФФЕКТИВНОСТЬ СМЕН - 5 колонок -->
+                <div class="col-span-5 flex flex-col gap-4">
+                    <h2 class="text-2xl font-bold text-fly-blue flex items-center gap-3 uppercase">
+                        <span class="text-3xl">📊</span> ЭФФЕКТИВНОСТЬ СМЕН
+                    </h2>
+                    
+                    <div class="dash-card flex-1 flex flex-col overflow-hidden">
+                        <!-- Шапка таблицы -->
+                        <div class="grid grid-cols-12 gap-2 px-6 py-4 bg-gray-50 border-b border-gray-200 text-[11px] font-black text-gray-500 uppercase tracking-wider">
+                            <div class="col-span-3">Сотрудник</div>
+                            <div class="col-span-2 text-center">87 (Посадка)</div>
+                            <div class="col-span-2 text-center">13/15 (Рег-ция)</div>
+                            <div class="col-span-3">Благодарности</div>
+                            <div class="col-span-2 text-right">Статус</div>
+                        </div>
+                        
+                        <!-- Строки -->
+                        <div class="flex flex-col p-4 gap-3 flex-1 justify-center">
+                            
+                            <!-- Айдана -->
+                            <div class="grid grid-cols-12 gap-2 items-center bg-white border border-gray-100 shadow-sm p-3 rounded-xl border-l-4 border-l-fly-blue">
+                                <div class="col-span-3 font-bold text-fly-blue text-sm">👤 АЙДАНА</div>
+                                <div class="col-span-2 flex justify-center"><span class="bg-green-100 text-green-800 px-3 py-1 rounded-full text-xs font-bold w-full text-center">🟢 0 мин</span></div>
+                                <div class="col-span-2 flex justify-center"><span class="bg-green-100 text-green-800 px-3 py-1 rounded-full text-xs font-bold w-full text-center">🟢 0 мин</span></div>
+                                <div class="col-span-3 flex items-center gap-2">
+                                    <div class="flex-1 h-2.5 bg-gray-100 rounded-full overflow-hidden"><div class="h-full bg-fly-red w-[100%]"></div></div>
+                                    <span class="font-black text-sm">15</span>
+                                </div>
+                                <div class="col-span-2 text-right text-[10px] font-bold text-gray-600 leading-tight">Хранители точности 💎</div>
+                            </div>
+
+                            <!-- Кайрат -->
+                            <div class="grid grid-cols-12 gap-2 items-center bg-white border border-gray-100 shadow-sm p-3 rounded-xl border-l-4 border-l-yellow-400">
+                                <div class="col-span-3 font-bold text-fly-blue text-sm">👤 КАЙРАТ</div>
+                                <div class="col-span-2 flex justify-center"><span class="bg-yellow-100 text-yellow-800 px-3 py-1 rounded-full text-xs font-bold w-full text-center">🟨 4 мин</span></div>
+                                <div class="col-span-2 flex justify-center"><span class="bg-green-100 text-green-800 px-3 py-1 rounded-full text-xs font-bold w-full text-center">🟢 0 мин</span></div>
+                                <div class="col-span-3 flex items-center gap-2">
+                                    <div class="flex-1 h-2.5 bg-gray-100 rounded-full overflow-hidden"><div class="h-full bg-fly-red w-[100%]"></div></div>
+                                    <span class="font-black text-sm">15</span>
+                                </div>
+                                <div class="col-span-2 text-right text-[10px] font-bold text-gray-600 leading-tight">Мастера сервиса ✨</div>
+                            </div>
+
+                            <!-- Нурзат -->
+                            <div class="grid grid-cols-12 gap-2 items-center bg-white border border-gray-100 shadow-sm p-3 rounded-xl border-l-4 border-l-yellow-400">
+                                <div class="col-span-3 font-bold text-fly-blue text-sm">👤 НУРЗАТ</div>
+                                <div class="col-span-2 flex justify-center"><span class="bg-green-100 text-green-800 px-3 py-1 rounded-full text-xs font-bold w-full text-center">🟢 0 мин</span></div>
+                                <div class="col-span-2 flex justify-center"><span class="bg-yellow-100 text-yellow-800 px-3 py-1 rounded-full text-xs font-bold w-full text-center">🟨 8 мин</span></div>
+                                <div class="col-span-3 flex items-center gap-2">
+                                    <div class="flex-1 h-2.5 bg-gray-100 rounded-full overflow-hidden"><div class="h-full bg-fly-red w-[80%]"></div></div>
+                                    <span class="font-black text-sm">12</span>
+                                </div>
+                                <div class="col-span-2 text-right text-[10px] font-bold text-gray-600 leading-tight">Лидеры вовлеченности 🌟</div>
+                            </div>
+
+                            <!-- Жанна -->
+                            <div class="grid grid-cols-12 gap-2 items-center bg-white border border-gray-100 shadow-sm p-3 rounded-xl border-l-4 border-l-fly-blue">
+                                <div class="col-span-3 font-bold text-fly-blue text-sm">👤 ЖАННА</div>
+                                <div class="col-span-2 flex justify-center"><span class="bg-green-100 text-green-800 px-3 py-1 rounded-full text-xs font-bold w-full text-center">🟢 0 мин</span></div>
+                                <div class="col-span-2 flex justify-center"><span class="bg-green-100 text-green-800 px-3 py-1 rounded-full text-xs font-bold w-full text-center">🟢 0 мин</span></div>
+                                <div class="col-span-3 flex items-center gap-2">
+                                    <div class="flex-1 h-2.5 bg-gray-100 rounded-full overflow-hidden"><div class="h-full bg-fly-blue w-[46%]"></div></div>
+                                    <span class="font-black text-sm">7</span>
+                                </div>
+                                <div class="col-span-2 text-right text-[10px] font-bold text-gray-600 leading-tight">Стабильный прогресс 📈</div>
+                            </div>
+
+                        </div>
+                    </div>
+                </div>
+
+                <!-- НИЖНИЙ РЯД -->
+                <!-- 3. РЕПОРТЫ (IQSMS) - 8 колонок -->
+                <div class="col-span-8 flex flex-col gap-4">
+                    <div class="flex items-end gap-4 mb-1">
+                        <h2 class="text-2xl font-bold text-fly-blue flex items-center gap-3 uppercase">
+                            <span class="text-3xl">📋</span> РЕПОРТЫ (IQSMS)
+                        </h2>
+                        <span class="text-fly-red font-semibold mb-1">Разбор ключевых ошибок апреля:</span>
+                    </div>
+
+                    <div class="grid grid-cols-3 gap-5 flex-1">
+                        <!-- Карточка 1 -->
+                        <div class="dash-card p-5 border-t-4 border-t-fly-red flex flex-col relative bg-white">
+                            <div class="absolute -top-3 -right-3 bg-red-100 w-10 h-10 rounded-full flex items-center justify-center text-xl font-black text-fly-red border-2 border-white shadow-sm">1</div>
+                            <h3 class="font-bold text-fly-blue text-[15px] mb-3 pr-6">Засадка (рейс 7062)</h3>
+                            <p class="text-sm text-gray-600 mb-4 flex-1">
+                                Пассажирка (бабушка) с рейса в Уральск попала на другой борт.
+                            </p>
+                            <div class="bg-green-50 border border-green-100 rounded-lg p-3 text-[13px] text-gray-800 mt-auto shadow-inner">
+                                <span class="font-bold text-green-700 block mb-1">➡️ Решение:</span>
+                                Усиливаем бдительность! Внимательно проверяем не только фамилию, но и номер рейса/направление на посадочном талоне при сканировании.
+                            </div>
+                        </div>
+
+                        <!-- Карточка 2 -->
+                        <div class="dash-card p-5 border-t-4 border-t-fly-red flex flex-col relative bg-white">
+                            <div class="absolute -top-3 -right-3 bg-red-100 w-10 h-10 rounded-full flex items-center justify-center text-xl font-black text-fly-red border-2 border-white shadow-sm">2</div>
+                            <h3 class="font-bold text-fly-blue text-[15px] mb-3 pr-6">Авиабезопасность (рейс из Ташкента)</h3>
+                            <p class="text-sm text-gray-600 mb-4 flex-1">
+                                БП открыли дверь самолета без участия наземного агента и пограничной службы, ссылаясь на стуки.
+                            </p>
+                            <div class="bg-green-50 border border-green-100 rounded-lg p-3 text-[13px] text-gray-800 mt-auto shadow-inner">
+                                <span class="font-bold text-green-700 block mb-1">➡️ Решение:</span>
+                                Напоминаю регламент — дверь открывается только после команды наземного персонала. Провести беседу с экипажами о недопустимости открытия дверей до прибытия всех служб.
+                            </div>
+                        </div>
+
+                        <!-- Карточка 3 -->
+                        <div class="dash-card p-5 border-t-4 border-t-fly-red flex flex-col relative bg-white">
+                            <div class="absolute -top-3 -right-3 bg-red-100 w-10 h-10 rounded-full flex items-center justify-center text-xl font-black text-fly-red border-2 border-white shadow-sm">3</div>
+                            <h3 class="font-bold text-fly-blue text-[15px] mb-3 pr-6">Багаж (рейс 7315) 🛑</h3>
+                            <p class="text-sm text-gray-600 mb-4 flex-1">
+                                Ошибка Рамп-агента в подсчете багажа. Благодаря внимательности наших супервайзеров, количество было перепроверено и борт закрыт вовремя.
+                            </p>
+                            <div class="bg-green-50 border border-green-100 rounded-lg p-3 text-[13px] text-gray-800 mt-auto shadow-inner">
+                                <span class="font-bold text-green-700 block mb-1">➡️ Решение:</span>
+                                Доверяй, но проверяй! Наши супервайзеры в очередной раз спасли рейс от задержки. Отличная работа!
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 4. ОТ МЕНЯ ЛИЧНО - 4 колонки -->
+                <div class="col-span-4 flex flex-col gap-4">
+                    <h2 class="text-2xl font-bold text-fly-blue flex items-center gap-3 uppercase invisible">
+                        <span>&nbsp;</span> Спейсер
+                    </h2> <!-- Скрытый заголовок для выравнивания -->
+                    
+                    <div class="dash-card p-8 flex-1 bg-fly-red text-white relative overflow-hidden flex flex-col justify-center">
+                        <!-- Декоративные кавычки -->
+                        <div class="absolute -right-6 -top-10 text-[200px] font-serif opacity-10 leading-none">"</div>
+                        
+                        <h3 class="text-2xl font-bold mb-4 flex items-center gap-3 relative z-10 text-yellow-300">
+                            📢 ОТ МЕНЯ ЛИЧНО:
+                        </h3>
+                        
+                        <p class="text-[17px] font-medium leading-relaxed relative z-10">
+                            Смена Кайрата и Айданы, вы сегодня лидеры по благодарностям! 15 отзывов за месяц — это прекрасный показатель того, что скорость не мешает качеству. 
+                            <br><br>
+                            Смена Айданы и Жанны, ваши «нулевые» задержки — это то, на чем держатся наши 90% OTP. Молодцы! 😊
+                        </p>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Функция для идеального масштабирования дашборда 1920x1080 под любой размер экрана
+        function adjustScale() {
+            const wrapper = document.getElementById('presentation-wrapper');
+            const container = document.getElementById('dashboard-container');
+            
+            const ww = window.innerWidth;
+            const wh = window.innerHeight;
+            
+            // Вычисляем масштаб так, чтобы слайд всегда помещался целиком (16:9)
+            // Используем 98% ширины/высоты, чтобы оставить крошечный отступ
+            const scale = Math.min(ww / 1920, wh / 1080) * 0.98; 
+
+            container.style.transform = `scale(${scale})`;
+        }
+
+        // Запускаем при загрузке и при изменении размера окна
+        window.addEventListener('resize', adjustScale);
+        document.addEventListener('DOMContentLoaded', adjustScale);
+    </script>
+</body>
+</html>
