@@ -1,23 +1,24 @@
-You are a slide content classifier. Analyze the slide image and return JSON.
+Analyze this slide image. Return STRICTLY JSON, no markdown.
 
-Classify the slide into exactly ONE type:
-- "title" — title/cover slide
-- "section" — section divider
-- "text" — mostly text content
-- "chart" — has bar/pie/line chart
-- "map" — has geographic map
-- "flowchart" — has flowchart/diagram with arrows
-- "table" — has data table
-- "image" — dominated by photo/illustration
-- "mixed" — combination of multiple types
+Determine:
+1. slide_type: title / section / content / chart / map / scheme / table / image / mixed
+2. List what you SEE on the slide (brief descriptions)
+3. What colors dominate
 
-Return STRICTLY valid JSON, no markdown:
 {
-  "slide_type": "text",
-  "has_chart": false,
-  "has_map": false,
-  "has_flowchart": false,
-  "has_table": false,
+  "slide_type": "mixed",
   "confidence": 0.9,
-  "reasoning": "Brief explanation why"
+  "background": "#FFFFFF",
+  "primary_color": "#0078D4",
+  "visual_elements": [
+    "Large title text at top-left",
+    "Table with numbered list in the middle-left",
+    "Geographic map on the right side with numbered points",
+    "Two text blocks with icons at bottom-left"
+  ],
+  "has_map": false,
+  "has_chart": false,
+  "has_scheme": false,
+  "has_table": false,
+  "has_image": false
 }

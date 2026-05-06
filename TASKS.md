@@ -5,15 +5,22 @@
 - Миграция на google.genai + Vertex AI
 - designer.md обновлён, фикс markdown-мусора в SVG
 - Map Pipeline ~80% (classifier, splitter, background, objects, assembler)
+- Обогащённый парсер parse_pptx_rich() — позиции, стили, цвета, таблицы
+- Ollama client (core/ollama_client.py) — готов для локальных моделей
+- Vision classifier обновлён — возвращает visual_elements, has_map/chart/scheme
+- Classifier (agents/classifier.py) — JSON_VISION + JSON_PARSED → JSON_FINAL ✅
+- Контракты: SlideClassificationFinal, SlideGroup, ElementInfo, ColorPalette, ParsedShape, ParsedSlide и др.
+- Промпты: prompts/classifier.md, prompts/vision_classifier.md (обновлены)
 
 ---
 
 ## 📋 ФАЗА 4.1: Рефакторинг под архитектуру v2
 
 ### Classifier
-- [ ] agents/classifier.py — JSON_VISION + JSON_PARSED → JSON_FINAL
-- [ ] prompts/classifier.md
-- [ ] models/contracts.py — SlideClassificationFinal
+- [x] agents/classifier.py — JSON_VISION + JSON_PARSED → JSON_FINAL
+- [x] prompts/classifier.md
+- [x] models/contracts.py — SlideClassificationFinal
+- [ ] Вынести фильтрацию мелких шейпов в classifier.py (сейчас в тесте)
 
 ### Senior Designer
 - [ ] agents/senior_designer.py — концепция, шаблон, инструкции
@@ -54,5 +61,10 @@
 ## 🐛 Баги
 - [ ] SVG word-wrap не всегда работает
 - [ ] Постпроцессор скругляет ВСЕ Rectangle
-- [ ] gemini-3.1-flash-lite-preview 404 в Vertex AI
 - [ ] map_pipeline шаги 4-5 заглушки
+
+## 📝 Решения принятые
+- Локальные модели (Ollama) ненадёжны для структурированного JSON — используем Gemini
+- Vision: простая роль (описание + флаги), группировку делает Classifier
+- Фильтрация мелких шейпов перед Classifier (w>100 или h>50)
+- Ollama client оставлен на будущее

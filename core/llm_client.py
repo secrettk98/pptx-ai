@@ -1,23 +1,34 @@
-"""Единая обёртка для вызова Gemini API через Vertex AI с поддержкой изображений и повторами."""
+"""Модуль для маршрутизации запросов между облачным Gemini и локальным Ollama."""
 
 import time
 import logging
-from typing import Optional
 from pathlib import Path
 
 from PIL import Image
 from google import genai
 from google.genai import types
 
-from core.config import LLM_TIMEOUT, LLM_MAX_RETRIES
+from core.config import LLM_MAX_RETRIES
+from core.ollama_client import call_ollama
 
 logger = logging.getLogger(__name__)
 
+def call_llm(prompt: str, model_name: str, image_path: str | None = None, json_mode: bool = False) -> str:
+    """Вызывает соответствующий LLM клиент в зависимости от префикса названия модели."""
+    logger.info(f"Запрос к LLM: {model_name}, json_mode={json_mode}")
 
-def call_llm(prompt: str, model_name: str, image_path: Optional[str] = None, json_mode: bool = False) -> str:
-    """Отправляет текстовый или мультимодальный запрос к LLM с механизмом повторных попыток."""
-    logger.info(f"Начинаем вызов LLM (Vertex AI): {model_name}, длина промпта: {len(prompt)}")
-    
+    # Роутинг на локальный Ollama
+    if model_name.startswith("ollama/"):
+        real_model = model_name.replace("ollama/", "", 1)
+        logger.info(f"Перенаправление запроса в Ollama (модель: {real_model})")
+        return call_ollama(
+            prompt=prompt, 
+            model_name=real_model, 
+            image_path=image_path, 
+            json_mode=json_mode
+        )
+
+    # Оригинальная логика для Vertex AI / Gemini
     client = genai.Client(
         vertexai=True,
         project="powermagic",
@@ -31,7 +42,7 @@ def call_llm(prompt: str, model_name: str, image_path: Optional[str] = None, jso
     
     if json_mode:
         config_kwargs["response_mime_type"] = "application/json"
-        logger.info("Активирован режим JSON-ответа")
+        logger.info("Активирован JSON-режим для Gemini")
         
     config = types.GenerateContentConfig(**config_kwargs)
     contents = [prompt]
@@ -39,7 +50,7 @@ def call_llm(prompt: str, model_name: str, image_path: Optional[str] = None, jso
     if image_path is not None:
         try:
             img_path = Path(image_path)
-            logger.info(f"Чтение изображения из файла: {img_path}")
+            logger.info(f"Загрузка изображения для Gemini: {img_path}")
             image = Image.open(img_path)
             contents = [prompt, image]
         except Exception as e:
@@ -48,18 +59,20 @@ def call_llm(prompt: str, model_name: str, image_path: Optional[str] = None, jso
             
     for attempt in range(LLM_MAX_RETRIES):
         try:
-            logger.info(f"Попытка отправки запроса {attempt + 1} из {LLM_MAX_RETRIES}")
+            logger.info(f"Попытка запроса к Gemini {attempt + 1} из {LLM_MAX_RETRIES}")
             response = client.models.generate_content(
                 model=model_name,
                 contents=contents,
                 config=config
             )
             text = response.text
-            logger.info(f"Получен успешный ответ LLM, длина текста: {len(text)}")
+            logger.info(f"Ответ Gemini получен (длина: {len(text)})")
             return text
         except Exception as e:
-            logger.warning(f"Ошибка LLM (попытка {attempt + 1}): {e}")
+            logger.warning(f"Ошибка на попытке {attempt + 1}: {e}")
+            if attempt == LLM_MAX_RETRIES - 1:
+                logger.error("Все попытки вызова Gemini исчерпаны")
+                raise
             time.sleep(2 ** attempt)
             
-    logger.error(f"LLM не ответила после {LLM_MAX_RETRIES} попыток")
-    raise RuntimeError(f"LLM failed after {LLM_MAX_RETRIES} attempts")
+    return ""
