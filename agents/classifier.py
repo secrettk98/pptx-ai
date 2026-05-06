@@ -11,8 +11,8 @@ from models.contracts import SlideClassificationFinal
 
 logger = logging.getLogger(__name__)
 
-MODEL_NAME = "ollama/qwen3:8b"
-
+from core.config import MODEL_CLASSIFIER
+MODEL_NAME = MODEL_CLASSIFIER
 
 def classify_slide_final(json_vision: dict, json_parsed: dict, slide_index: int) -> SlideClassificationFinal:
     """Объединяет JSON_VISION и JSON_PARSED в финальную классификацию с помощью LLM."""
