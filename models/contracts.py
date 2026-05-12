@@ -150,3 +150,27 @@ class ParsedPresentation(BaseModel):
     filename: str
     slide_count: int
     slides: list[ParsedSlide]
+
+class BlockInstruction(BaseModel):
+    """Инструкция для одного блока на слайде."""
+    block_id: str = Field(description="b0, b1, b2... — уникальный ID блока")
+    group_id: str = Field(default="", description="Ссылка на group_id из JSON_FINAL, пусто для footer/divider")
+    block_type: str = Field(description="title, subtitle, text_card, metric_card, table, image_placeholder, map_placeholder, chart_placeholder, scheme_placeholder, icon_row, cta, footer, divider")
+    x: int = Field(description="Координата X в пикселях (viewBox 1280x720)")
+    y: int = Field(description="Координата Y в пикселях")
+    w: int = Field(description="Ширина блока в пикселях")
+    h: int = Field(description="Высота блока в пикселях")
+    content: dict = Field(default_factory=dict, description="Текст, цифры — всё что нужно отрисовать. Ключи зависят от block_type")
+    style: dict = Field(default_factory=dict, description="font_size, font_weight, fill, bg_color, border_radius и т.д.")
+    reverse_type: Optional[str] = Field(default=None, description="map, chart, scheme, image — если блок это плейсхолдер для reverse")
+    z_order: int = Field(default=0, description="Порядок отрисовки, 0 = самый нижний")
+
+class DesignInstruction(BaseModel):
+    """Полная инструкция Senior Designer для одного слайда."""
+    slide_index: int
+    layout_name: str = Field(description="Название layout из layout_code.md")
+    background_color: str = Field(default="#FFFFFF")
+    accent_color: str = Field(default="#0066CC")
+    blocks: list[BlockInstruction] = Field(description="Упорядоченный список блоков для отрисовки")
+    design_notes: str = Field(default="", description="Заметки для Junior Designer — особые указания")
+    reverse_needed: list[str] = Field(default_factory=list, description="Список reverse_type которые нужно обработать перед отрисовкой")

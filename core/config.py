@@ -26,7 +26,7 @@ MAPBOX_ACCESS_TOKEN: str = os.getenv("MAPBOX_ACCESS_TOKEN", "")
 # Модели AI
 MODEL_VISION: str = "gemini-2.5-flash"
 MODEL_CLASSIFIER: str = "gemini-2.5-flash"
-MODEL_BRAIN: str = "gemini-2.5-flash"
+MODEL_BRAIN: str = "gemini-2.5-pro"
 MODEL_DESIGNER: str = "gemini-2.5-pro"
 MODEL_INSPECTOR: str = "gemini-3.1-flash-lite-preview"
 MODEL_CHEAP: str = "gemini-3.1-flash-lite-preview"

@@ -1,41 +1,79 @@
-<?xml version='1.0' encoding='utf-8'?>
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 720">
-<rect width="1280" height="720" fill="#FFFFFF" x="47" y="47" />
-<g transform="translate(0, 56)">
-<text x="48" y="72" font-family="Google Sans" font-size="24" font-weight="bold" fill="#1A1A1A">НЕОХВАЧЕННЫЕ ПРИГОРОДЫ</text>
-<text x="48" y="104" font-family="Google Sans" font-size="12" fill="#808080">Проблема транспортной доступности</text>
+<svg viewBox="0 0 1280 720" xmlns="http://www.w3.org/2000/svg">
+<rect x="0" y="0" width="1280" height="720" fill="#FFFFFF"/>
+<text x="47" y="71" font-family="sans-serif" font-size="24" font-weight="bold" fill="#1A1A1A" text-anchor="start">КАТЕГОРИИ ПАССАЖИРОВ</text>
+<text x="47" y="95" font-family="sans-serif" font-size="14" fill="#808080" text-anchor="start">По пригородным маршрутам Талгарского тракта</text>
 <g>
-<rect x="48" y="136" width="464" height="168" rx="12" ry="12" fill="#F8F9FA" stroke="#E0E0E0" stroke-width="1" />
-<text x="72" y="168" font-family="Google Sans" font-size="12" font-weight="bold" fill="#1A1A1A">БОЛЕЕ</text>
-<text x="72" y="224" font-family="Google Sans" font-size="40" font-weight="bold" fill="#0066CC">85</text>
-<text x="160" y="224" font-family="Google Sans" font-size="12" font-weight="bold" fill="#1A1A1A">ТЫС. ЧЕЛОВЕК</text>
-<text x="72" y="248" font-family="Google Sans" font-size="12" fill="#1A1A1A">
-<tspan x="71" dy="0">пригородного населения не обслуживаются</tspan>
-<tspan x="71" dy="18">общественным транспортом.</tspan>
+<rect x="47" y="125" width="708" height="297" rx="12" ry="12" fill="#F0F0F0" stroke="#CCCCCC" stroke-width="2" stroke-dasharray="8,4"/>
+<text x="401" y="268" font-family="sans-serif" font-size="14" fill="#808080" text-anchor="middle">
+<tspan x="401" dy="0">[CHART] Stacked horizontal bar chart displaying</tspan>
+<tspan x="401" dy="22">passenger categories by route</tspan>
 </text>
 </g>
 <g>
-<rect x="48" y="328" width="464" height="112" rx="12" ry="12" fill="#F8F9FA" stroke="#E0E0E0" stroke-width="1" />
-<text x="72" y="368" font-family="Google Sans" font-size="12" font-weight="bold" fill="#1A1A1A">Территории без сообщения</text>
-<text x="72" y="392" font-family="Google Sans" font-size="12" fill="#1A1A1A">
-<tspan x="71" dy="0">Значительные территории остаются без</tspan>
-<tspan x="71" dy="18">транспортного сообщения.</tspan>
+<defs>
+<clipPath id="clip-b3">
+<rect x="779" y="125" width="454" height="297" rx="12" ry="12"/>
+</clipPath>
+</defs>
+<g clip-path="url(#clip-b3)">
+<rect x="779" y="125" width="454" height="42" fill="#0066CC"/>
+<text x="791" y="152" font-family="sans-serif" font-size="12" font-weight="bold" fill="#FFFFFF">Маршрут</text>
+<text x="942" y="152" font-family="sans-serif" font-size="12" font-weight="bold" fill="#FFFFFF">Транзакции</text>
+<text x="1093" y="152" font-family="sans-serif" font-size="12" font-weight="bold" fill="#FFFFFF">Доля</text>
+<rect x="779" y="167" width="454" height="42" fill="#FFFFFF"/>
+<text x="791" y="194" font-family="sans-serif" font-size="12" fill="#1A1A1A">100</text>
+<text x="942" y="194" font-family="sans-serif" font-size="12" fill="#1A1A1A">17 429</text>
+<text x="1093" y="194" font-family="sans-serif" font-size="12" fill="#1A1A1A">30%</text>
+<rect x="779" y="209" width="454" height="42" fill="#F8F9FA"/>
+<text x="791" y="236" font-family="sans-serif" font-size="12" fill="#1A1A1A">8</text>
+<text x="942" y="236" font-family="sans-serif" font-size="12" fill="#1A1A1A">9 295</text>
+<text x="1093" y="236" font-family="sans-serif" font-size="12" fill="#1A1A1A">16%</text>
+<rect x="779" y="251" width="454" height="42" fill="#FFFFFF"/>
+<text x="791" y="278" font-family="sans-serif" font-size="12" fill="#1A1A1A">54</text>
+<text x="942" y="278" font-family="sans-serif" font-size="12" fill="#1A1A1A">9 295</text>
+<text x="1093" y="278" font-family="sans-serif" font-size="12" fill="#1A1A1A">16%</text>
+<rect x="779" y="293" width="454" height="42" fill="#F8F9FA"/>
+<text x="791" y="320" font-family="sans-serif" font-size="12" fill="#1A1A1A">252</text>
+<text x="942" y="320" font-family="sans-serif" font-size="12" fill="#1A1A1A">8 133</text>
+<text x="1093" y="320" font-family="sans-serif" font-size="12" fill="#1A1A1A">14%</text>
+<rect x="779" y="335" width="454" height="42" fill="#FFFFFF"/>
+<text x="791" y="362" font-family="sans-serif" font-size="12" fill="#1A1A1A">207</text>
+<text x="942" y="362" font-family="sans-serif" font-size="12" fill="#1A1A1A">6 971</text>
+<text x="1093" y="362" font-family="sans-serif" font-size="12" fill="#1A1A1A">12%</text>
+<rect x="779" y="377" width="454" height="45" fill="#F8F9FA"/>
+<text x="791" y="404" font-family="sans-serif" font-size="12" fill="#1A1A1A">Прочие</text>
+<text x="942" y="404" font-family="sans-serif" font-size="12" fill="#1A1A1A">6 972</text>
+<text x="1093" y="404" font-family="sans-serif" font-size="12" fill="#1A1A1A">12%</text>
+<line x1="779" y1="167" x2="1233" y2="167" stroke="#E0E0E0" stroke-width="1"/>
+<line x1="779" y1="209" x2="1233" y2="209" stroke="#E0E0E0" stroke-width="1"/>
+<line x1="779" y1="251" x2="1233" y2="251" stroke="#E0E0E0" stroke-width="1"/>
+<line x1="779" y1="293" x2="1233" y2="293" stroke="#E0E0E0" stroke-width="1"/>
+<line x1="779" y1="335" x2="1233" y2="335" stroke="#E0E0E0" stroke-width="1"/>
+<line x1="779" y1="377" x2="1233" y2="377" stroke="#E0E0E0" stroke-width="1"/>
+</g>
+</g>
+<g>
+<rect x="47" y="446" width="708" height="227" rx="12" ry="12" fill="#F8F9FA" stroke="#E0E0E0" stroke-width="1"/>
+<text x="71" y="484" font-family="sans-serif" font-size="14" font-weight="bold" fill="#1A1A1A">Ключевые выводы</text>
+<text x="71" y="518" font-family="sans-serif" font-size="12" fill="#1A1A1A">
+<tspan x="71" dy="0">• 58 098 транзакций приходится на 9 пригородных маршрутов Талгарского тракта.</tspan>
+<tspan x="71" dy="22">• Самые популярные маршруты — 100 (30%), 8 (16%), 54 (16%), проходящие через</tspan>
+<tspan x="71" dy="18">густонаселенные Бесагаш и Туздыбастау.</tspan>
+<tspan x="71" dy="22">• Среди чисто пригородных лидируют маршруты 252 (14%) и 207 (12%), идущие</tspan>
+<tspan x="71" dy="18">в Талгар и Есик.</tspan>
+<tspan x="71" dy="22">• Преобладают взрослые и студенческие транзакции, что указывает на поездки на</tspan>
+<tspan x="71" dy="18">работу и учёбу.</tspan>
 </text>
 </g>
+<text x="779" y="460" font-family="sans-serif" font-size="14" font-weight="bold" fill="#1A1A1A" text-anchor="start">
+<tspan x="779" dy="0">Среднее количество транзакций по</tspan>
+<tspan x="779" dy="22">категориям лиц</tspan>
+</text>
 <g>
-<rect x="48" y="464" width="464" height="120" rx="12" ry="12" fill="#F8F9FA" stroke="#E0E0E0" stroke-width="1" />
-<text x="72" y="496" font-family="Google Sans" font-size="12" font-weight="bold" fill="#1A1A1A">Легенда</text>
-<rect x="71.0" y="522.0" width="12.0" height="12.0" rx="2" ry="2" fill="#E53935" />
-<text x="88" y="528" font-family="Google Sans" font-size="12" fill="#1A1A1A">Необслуживаемые зоны</text>
-<rect x="71.0" y="552.0" width="12.0" height="12.0" rx="2" ry="2" fill="#E0E0E0" />
-<text x="88" y="560" font-family="Google Sans" font-size="12" fill="#1A1A1A">Обслуживаемые зоны</text>
-</g>
-<g>
-<rect x="536" y="136" width="696" height="448" rx="12" ry="12" fill="#F8F9FA" stroke="#E0E0E0" stroke-width="1" />
-<path d="M576 173 C650 160, 800 220, 900 190 L1193 173 L1193 544 L576 544 Z" fill="#E0E0E0" />
-<path d="M750 250 C720 350, 780 450, 900 480 C1000 500, 1050 420, 1100 450 L1150 430 L1080 320 C1050 280, 950 250, 900 280 Z" fill="#E53935" />
-<path d="M600 380 C650 360, 680 420, 650 480 L610 500 L590 420 Z" fill="#E53935" />
-<path d="M950 195 C980 210, 990 250, 960 270 L930 250 Z" fill="#E53935" />
-</g>
+<rect x="779" y="478" width="454" height="195" rx="12" ry="12" fill="#F0F0F0" stroke="#CCCCCC" stroke-width="2" stroke-dasharray="8,4"/>
+<text x="1006" y="565" font-family="sans-serif" font-size="14" fill="#808080" text-anchor="middle">
+<tspan x="1006" dy="0">[CHART] Donut chart illustrating average</tspan>
+<tspan x="1006" dy="22">transactions by passenger category</tspan>
+</text>
 </g>
 </svg>

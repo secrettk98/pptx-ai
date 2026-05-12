@@ -42,6 +42,8 @@ def classify_slide_final(json_vision: dict, json_parsed: dict, slide_index: int)
         data = json.loads(clean_response.strip())
         data.pop("slide_index", None)
         
+        from core.llm_normalize import normalize_for_model
+        data = normalize_for_model(data, SlideClassificationFinal)
         result = SlideClassificationFinal(slide_index=slide_index, **data)
         logger.info(f"Слайд {slide_index} успешно классифицирован (тип: {result.slide_type}, групп: {len(result.groups)})")
         
