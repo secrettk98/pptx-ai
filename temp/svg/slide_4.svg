@@ -1,0 +1,44 @@
+<svg viewBox="0 0 1280 720" xmlns="http://www.w3.org/2000/svg">
+<rect width="1280" height="720" fill="#FFFFFF"/>
+<g font-family="Arial, sans-serif">
+<text x="43" y="50" font-size="24" font-weight="bold" fill="#1A1A1A">
+<tspan x="43" dy="0">РАСПРЕДЕЛЕНИЕ НАСЕЛЕНИЯ ПО ВИДАМ ТРАНСПОРТА</tspan>
+</text>
+<text x="43" y="75" font-size="12" fill="#666666">
+<tspan x="43" dy="0">По Талгарскому направлению</tspan>
+</text>
+<text x="43" y="307" font-size="12" fill="#1A1A1A">
+<tspan x="43" dy="0">Анализ 9-ти маршрутов: №8,54,100,204,207,209,210,224,252.</tspan>
+</text>
+<g>
+<rect x="43" y="339" width="582" height="192" fill="#F8F8F8" rx="12"/>
+<g fill="#FFC107" stroke="#FFC107" stroke-width="2">
+<circle cx="83" cy="379" r="12"/>
+<line x1="83" y1="361" x2="83" y2="357"/>
+<line x1="83" y1="397" x2="83" y2="401"/>
+<line x1="65" y1="379" x2="61" y2="379"/>
+<line x1="101" y1="379" x2="105" y2="379"/>
+<line x1="70" y1="366" x2="67" y2="363"/>
+<line x1="96" y1="392" x2="99" y2="395"/>
+<line x1="96" y1="366" x2="99" y2="363"/>
+<line x1="70" y1="392" x2="67" y2="395"/>
+</g>
+<text x="67" y="439" font-size="28" font-weight="bold" fill="#1A1A1A">5 436 чел/час</text>
+<text x="67" y="469" font-size="14" font-weight="bold" fill="#1A1A1A">УТРО 06:30 – 07:30 чч.</text>
+<text x="67" y="489" font-size="12" fill="#1A1A1A">
+<tspan x="67" dy="0">Общественный транспорт: 2 165 чел./час (41%)</tspan>
+<tspan x="67" dy="18">Автомобили (1 633 авто): 3 271 чел./час (59%)</tspan>
+</text>
+</g>
+<g>
+<rect x="651" y="339" width="582" height="192" fill="#F8F8F8" rx="12"/>
+<path d="M 699 365 A 14 14 0 1 1 699 393 A 10 10 0 1 0 699 365 Z" fill="#4A4A4A"/>
+<text x="675" y="439" font-size="28" font-weight="bold" fill="#1A1A1A">5 404 чел/час</text>
+<text x="675" y="469" font-size="14" font-weight="bold" fill="#1A1A1A">ВЕЧЕР 17:00 – 18:00 чч.</text>
+<text x="675" y="489" font-size="12" fill="#1A1A1A">
+<tspan x="675" dy="0">Общественный транспорт: 1 714 чел./час (32%)</tspan>
+<tspan x="675" dy="18">Автомобили (1 851 авто): 3 690 чел./час (68%)</tspan>
+</text>
+</g>
+</g>
+</svg>

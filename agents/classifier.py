@@ -1,8 +1,7 @@
-"""Агент для классификации слайдов на основе изображения и распарсенных данных."""
+"""Агент для классификации слайдов — поштучно или батчем до 20."""
 
 import json
 import logging
-import time
 import sys
 from pathlib import Path
 
@@ -13,124 +12,148 @@ from models.contracts import SlideClassificationV2
 
 logger = logging.getLogger(__name__)
 
+BATCH_LIMIT = 20
 
-def _get_core_rules_section_1() -> str:
-    """Извлекает секцию §1 из файла core_rules.md для контекста."""
-    try:
-        rules_path = CONFIG_DIR / "core_rules.md"
-        if not rules_path.exists():
-            logger.warning(f"Файл правил {rules_path} не найден")
-            return ""
-            
+
+def _load_system_prompt() -> str:
+    """Загружает системный промпт: classifier.md + §1 из core_rules."""
+    classifier_path = CONFIG_DIR / "classifier.md"
+    prompt = classifier_path.read_text(encoding="utf-8")
+
+    rules_path = CONFIG_DIR / "core_rules.md"
+    if rules_path.exists():
         content = rules_path.read_text(encoding="utf-8")
-        start_idx = content.find("§1")
-        if start_idx == -1:
-            return content
-            
-        end_idx = content.find("§2", start_idx)
-        if end_idx == -1:
-            return content[start_idx:]
-            
-        return content[start_idx:end_idx]
-    except Exception as e:
-        logger.error(f"Ошибка при чтении core_rules.md: {e}")
-        return ""
+        start = content.find("## 1.")
+        end = content.find("## 2.")
+        if start != -1 and end != -1:
+            prompt += "\n\n# CORE RULES §1\n" + content[start:end]
+
+    return prompt
 
 
-def classify_slide_v2(image_path: str, parsed_slide: dict, slide_index: int, user_header_pref: str = "auto") -> SlideClassificationV2:
-    """Классифицирует слайд на основе изображения и распарсенных данных."""
-    logger.info(f"Начало классификации для слайда {slide_index}")
-    
-    try:
-        classifier_path = CONFIG_DIR / "classifier.md"
-        classifier_prompt = classifier_path.read_text(encoding="utf-8")
-        
-        logger.info("Чтение секции §1 из core_rules.md")
-        rules_context = _get_core_rules_section_1()
-        
-        parsed_str = json.dumps(parsed_slide, ensure_ascii=False, indent=2)
-        prompt = f"{classifier_prompt}\n\n# CORE RULES CONTEXT\n{rules_context}\n\n# PARSED DATA\n{parsed_str}\n\n# USER HEADER PREFERENCE\n{user_header_pref}"
-        
-        logger.info(f"Вызов LLM {MODEL_CLASSIFIER} для классификации слайда {slide_index}")
-        raw_response = call_llm(
-            prompt=prompt, 
-            model_name=MODEL_CLASSIFIER, 
-            image_path=image_path, 
-            json_mode=True
-        )
-        
-        logger.info("Очистка ответа от Markdown-разметки")
-        clean_response = raw_response.replace("```json", "").replace("```", "").strip()
-        
-        data = json.loads(clean_response)
-        data.pop("slide_index", None)
-        
-        logger.info("Нормализация ответа под модель SlideClassificationV2")
-        data = normalize_for_model(data, SlideClassificationV2)
-        result = SlideClassificationV2(slide_index=slide_index, **data)
-        
-        logger.info(f"Слайд {slide_index} классифицирован: role={result.slide_role}, objects={len(result.objects)}, header={result.header_type}")
-        return result
-        
-    except Exception as e:
-        logger.error(f"Ошибка при классификации слайда {slide_index}: {e}")
-        raise
+def classify_slide_v2(
+    image_path: str,
+    parsed_slide: dict,
+    slide_index: int,
+    user_header_pref: str = "auto"
+) -> SlideClassificationV2:
+    """Классификация одного слайда (с картинкой)."""
+    logger.info(f"Классификация слайда {slide_index}")
+
+    system_prompt = _load_system_prompt()
+    parsed_str = json.dumps(parsed_slide, ensure_ascii=False, indent=2)
+    user_msg = f"# SLIDE {slide_index}\n# PARSED DATA\n{parsed_str}\n\n# USER HEADER PREFERENCE\n{user_header_pref}"
+
+    raw = call_llm(
+        prompt=user_msg,
+        model_name=MODEL_CLASSIFIER,
+        image_path=image_path,
+        json_mode=True,
+        system_instruction=system_prompt
+    )
+
+    data = json.loads(raw.replace("```json", "").replace("```", "").strip())
+    data.pop("slide_index", None)
+    data = normalize_for_model(data, SlideClassificationV2)
+    result = SlideClassificationV2(slide_index=slide_index, **data)
+
+    logger.info(f"Слайд {slide_index}: role={result.slide_role}, objects={result.objects}")
+    return result
 
 
-def classify_all_v2(image_paths: list[str], parsed_slides: list[dict], user_header_pref: str = "auto") -> list[SlideClassificationV2]:
-    """Пакетная классификация всех переданных слайдов."""
-    logger.info(f"Запуск пакетной классификации для {len(image_paths)} слайдов")
+def classify_batch_v2(
+    image_paths: list[str],
+    parsed_slides: list[dict],
+    user_header_pref: str = "auto"
+) -> list[SlideClassificationV2]:
+    """Батч-классификация: без картинок, только parsed данные. До 20 слайдов за вызов."""
+    logger.info(f"Батч-классификация: {len(parsed_slides)} слайдов")
+
+    system_prompt = _load_system_prompt()
     results = []
-    
-    try:
-        for idx, (img_path, parsed) in enumerate(zip(image_paths, parsed_slides)):
-            if idx > 0:
-                logger.info("Ожидание 2 секунды перед следующим вызовом API")
-                time.sleep(2)
-                
-            result = classify_slide_v2(img_path, parsed, slide_index=idx, user_header_pref=user_header_pref)
+
+    for batch_start in range(0, len(parsed_slides), BATCH_LIMIT):
+        batch_end = min(batch_start + BATCH_LIMIT, len(parsed_slides))
+        batch = parsed_slides[batch_start:batch_end]
+
+        logger.info(f"Батч [{batch_start}:{batch_end}] — {len(batch)} слайдов")
+
+        slides_data = []
+        for i, parsed in enumerate(batch):
+            idx = batch_start + i
+            slides_data.append({"slide_index": idx, "parsed": parsed})
+
+        user_msg = (
+            f"Classify ALL slides below. Return a JSON array of objects.\n"
+            f"Each object must match SlideClassificationV2 schema.\n"
+            f"USER HEADER PREFERENCE: {user_header_pref}\n\n"
+            f"# SLIDES\n{json.dumps(slides_data, ensure_ascii=False, indent=2)}"
+        )
+
+        raw = call_llm(
+            prompt=user_msg,
+            model_name=MODEL_CLASSIFIER,
+            json_mode=True,
+            system_instruction=system_prompt
+        )
+
+        clean = raw.replace("```json", "").replace("```", "").strip()
+        arr = json.loads(clean)
+
+        # Gemini может вернуть {slides: [...]} или просто [...]
+        if isinstance(arr, dict):
+            arr = arr.get("slides", arr.get("results", list(arr.values())[0]))
+
+        for item in arr:
+            idx = item.pop("slide_index", batch_start + len(results))
+            item = normalize_for_model(item, SlideClassificationV2)
+            results.append(SlideClassificationV2(slide_index=idx, **item))
+
+        logger.info(f"Батч готов, всего классифицировано: {len(results)}")
+
+    return results
+
+
+def classify_all_v2(
+    image_paths: list[str],
+    parsed_slides: list[dict],
+    user_header_pref: str = "auto",
+    use_vision: bool = True
+) -> list[SlideClassificationV2]:
+    """Умная классификация: vision поштучно или батч без картинок."""
+    if use_vision:
+        logger.info("Режим Vision: поштучная классификация с картинками")
+        results = []
+        for idx, (img, parsed) in enumerate(zip(image_paths, parsed_slides)):
+            result = classify_slide_v2(img, parsed, idx, user_header_pref)
             results.append(result)
-            
-        logger.info("Пакетная классификация успешно завершена")
         return results
-        
-    except Exception as e:
-        logger.error(f"Ошибка при пакетной классификации: {e}")
-        raise
+    else:
+        return classify_batch_v2(image_paths, parsed_slides, user_header_pref)
 
 
 if __name__ == "__main__":
     from parsers.slide_renderer import render_slides
     from parsers.pptx_parser import parse_pptx_rich
-    
+
     logging.basicConfig(level=logging.INFO, format="%(levelname)s - %(message)s")
-    
+
     pptx_path = sys.argv[1] if len(sys.argv) > 1 else "projects/test_map/test_maps.pptx"
-    logger.info(f"Запуск тестовой классификации для: {pptx_path}")
-    
-    try:
-        logger.info("Рендеринг слайдов")
-        test_images = render_slides(pptx_path)
-        
-        logger.info("Парсинг содержимого слайдов")
-        parsed_presentation = parse_pptx_rich(pptx_path)
-        
-        if not test_images or not parsed_presentation:
-            logger.error("Не удалось получить данные для классификации")
-            sys.exit(1)
-            
-        # ParsedPresentation - это объект (Pydantic), обращаемся к атрибуту slides
-        # Метод принимает dict, поэтому используем model_dump()
-        first_slide_parsed = parsed_presentation.slides[0].model_dump()
-        
-        test_result = classify_slide_v2(test_images[0], first_slide_parsed, slide_index=0)
-        
-        print(f"slide_role: {test_result.slide_role}")
-        print(f"objects: {len(test_result.objects)}")
-        print(f"visual_subtype: {test_result.visual_subtype}")
-        print(f"header_type: {test_result.header_type}")
-        print(f"style_mode: {test_result.style_mode}")
-        print(f"objects list: {test_result.objects}")
-        
-    except Exception as err:
-        logger.error(f"Ошибка в блоке тестирования: {err}")
+    logger.info(f"Тест классификации: {pptx_path}")
+
+    images = render_slides(pptx_path)
+    parsed = parse_pptx_rich(pptx_path)
+
+    if not images or not parsed:
+        logger.error("Нет данных")
+        sys.exit(1)
+
+    # Тест одного слайда с vision
+    result = classify_slide_v2(images[0], parsed.slides[0].model_dump(), slide_index=0)
+    print(f"\nVision: role={result.slide_role}, objects={result.objects}")
+
+    # Тест батча без vision
+    all_parsed = [s.model_dump() for s in parsed.slides]
+    batch_results = classify_batch_v2(images, all_parsed)
+    for r in batch_results:
+        print(f"Batch slide {r.slide_index}: role={r.slide_role}, objects={r.objects}")

@@ -1,0 +1,57 @@
+<svg viewBox="0 0 1280 720" xmlns="http://www.w3.org/2000/svg">
+<rect width="1280" height="720" fill="#FFFFFF"/>
+<g id="row-r0">
+<g id="col-c0">
+<text x="43" y="150" font-family="Arial" font-size="24" fill="#1A1A1A">В 2026 году планируется:</text>
+</g>
+</g>
+<g id="row-r1">
+<g id="col-c1">
+<g id="card-0">
+<rect x="43" y="390" width="331" height="106" fill="#F8F8F8" rx="12"/>
+<path d="M69 421.5 H64.5 C60.36 421.5 57 418.14 57 414 V401 C57 399.343 58.343 398 60 398 H73.5 C75.157 398 76.5 399.343 76.5 401 V414 C76.5 418.14 73.14 421.5 69 421.5 Z M67 402.5 H66.5 V405.5 H67 V402.5 Z M67 407.5 H66.5 V410.5 H67 V407.5 Z M67 412.5 H66.5 V415.5 H67 V412.5 Z" fill="#1A1A1A" transform="translate(-1, 0)"/>
+<text x="67" y="453" font-family="Arial" font-size="14" font-weight="bold" fill="#1A1A1A">Велополосы</text>
+<text x="67" y="475" font-family="Arial" font-size="12" fill="#1A1A1A">
+<tspan dy="0">Обустроить не менее 55 км велополос</tspan>
+<tspan x="67" dy="18">путем нанесения разметки вдоль дорог</tspan>
+</text>
+</g>
+<g id="card-1">
+<rect x="400" y="390" width="331" height="106" fill="#F8F8F8" rx="12"/>
+<path d="M431 400.5 a 7.5 7.5 0 1 0 0 15 a 7.5 7.5 0 1 0 0 -15 M431 403.5 l -2 0 l 0 9 l 4 0 l 0 -2.5 c 0 -1.5 -1 -2.5 -2.5 -2.5 l -1.5 0 l 1.5 -4 z" fill="#1A1A1A"/>
+<text x="424" y="453" font-family="Arial" font-size="14" font-weight="bold" fill="#1A1A1A">Парковки для самокатов</text>
+<text x="424" y="475" font-family="Arial" font-size="12" fill="#1A1A1A">
+<tspan dy="0">Обустроить порядка 200 специальных</tspan>
+<tspan x="424" dy="18">парковок для самокатов</tspan>
+</text>
+</g>
+<g id="card-2">
+<rect x="43" y="522" width="331" height="106" fill="#F8F8F8" rx="12"/>
+<path d="M67 533 l 18 -18 l 8 8 l -18 18 l -8 -8 M64 530 a 3 3 0 1 1 0 6 a 3 3 0 1 1 0 -6" fill="#1A1A1A"/>
+<text x="67" y="585" font-family="Arial" font-size="14" font-weight="bold" fill="#1A1A1A">Номерные знаки</text>
+<text x="67" y="607" font-family="Arial" font-size="12" fill="#1A1A1A">
+<tspan dy="0">Обеспечить установку единых номерных</tspan>
+<tspan x="67" dy="18">знаков увеличенного формата</tspan>
+</text>
+</g>
+<g id="card-3">
+<rect x="400" y="522" width="331" height="106" fill="#F8F8F8" rx="12"/>
+<path d="M424 529 h 18 a 3 3 0 0 1 3 3 v 10 a 3 3 0 0 1 -3 3 h -15 l -6 6 v -6 a 3 3 0 0 1 -3 -3 v -10 a 3 3 0 0 1 3 -3 Z" fill="#1A1A1A"/>
+<text x="424" y="585" font-family="Arial" font-size="14" font-weight="bold" fill="#1A1A1A">Обратная связь</text>
+<text x="424" y="607" font-family="Arial" font-size="12" fill="#1A1A1A">
+<tspan dy="0">Запустить телеграмм бот для принятия</tspan>
+<tspan x="424" dy="18">жалоб и обращений от горожан</tspan>
+</text>
+</g>
+</g>
+<g id="col-c2">
+<!-- PLACEHOLDER: map, w=480, h=238 -->
+<rect x="757" y="390" width="480" height="238" fill="#F0F0F0" rx="12" stroke="#CCCCCC" stroke-dasharray="8,4" stroke-width="2"/>
+<text x="997" y="509" font-family="Arial" font-size="14" fill="#999999" text-anchor="middle">[map]</text>
+</g>
+</g>
+<g id="footer">
+<text x="43" y="680" font-family="Arial" font-size="8" fill="#808080">РАЗВИТИЕ МИКРОМОБИЛЬНОСТИ</text>
+<text x="1237" y="680" font-family="Arial" font-size="8" fill="#808080" text-anchor="end">4</text>
+</g>
+</svg>

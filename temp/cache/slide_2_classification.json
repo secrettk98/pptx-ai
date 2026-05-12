@@ -1,0 +1,23 @@
+{
+  "slide_index": 2,
+  "slide_role": "content",
+  "objects": [
+    "heading",
+    "text",
+    "table",
+    "visual"
+  ],
+  "visual_subtype": "map",
+  "pattern_hint": "",
+  "header_type": "B",
+  "needs_footer": true,
+  "style_mode": "strict",
+  "series_context": "standalone",
+  "overload": true,
+  "client_constraints": {
+    "verbatim_text": false,
+    "preserve_template": false,
+    "allow_slide_split": true,
+    "allow_content_removal": false
+  }
+}

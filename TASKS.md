@@ -1,53 +1,30 @@
 # PPTX-AI — Task Tracker
 
 ## ✅ Завершено
-- Фазы 0-3: структура, контракты, парсер, конвертер, AI-агенты v1, SVG Engine
+
+### Фазы 0-3 (база)
+- Структура, контракты, парсер, конвертер, AI-агенты v1, SVG Engine
 - Миграция на google.genai + Vertex AI
-- designer.md обновлён, фикс markdown-мусора в SVG
 - Map Pipeline ~80% (classifier, splitter, background, objects, assembler)
-- Обогащённый парсер parse_pptx_rich() — позиции, стили, цвета, таблицы
-- Ollama client (core/ollama_client.py) — готов для локальных моделей
-- Vision classifier обновлён — возвращает visual_elements, has_map/chart/scheme
-- Classifier (agents/classifier.py) — JSON_VISION + JSON_PARSED → JSON_FINAL ✅
-- Контракты: SlideClassificationFinal, SlideGroup, ElementInfo, ColorPalette, ParsedShape, ParsedSlide и др.
-- Промпты: prompts/classifier.md, prompts/vision_classifier.md (обновлены)
+- Обогащённый парсер parse_pptx_rich()
+- Ollama client (core/ollama_client.py)
 
----
-
-## 📋 ФАЗА 4.1: Рефакторинг под архитектуру v2
-
-### Senior Designer
-- [x] agents/senior_designer.py — LayoutPlan (rows, columns, grid_span)
-- [x] prompts/senior_designer.md
-- [x] models/contracts.py — LayoutPlan, RowInstruction, ColumnInstruction
-
-### Classifier v2
-- [x] agents/classifier.py — SlideClassificationV2 (6 объектов)
-- [x] config/classifier.md — новая схема классификации
-- [x] models/contracts.py — SlideClassificationV2, ClientConstraints
+### Фаза 4.1: Архитектура v2
+- [x] agents/classifier.py — SlideClassificationV2, батч до 20, system_instruction
+- [x] agents/senior_designer.py — LayoutPlan, батч до 10, system_instruction
+- [x] agents/junior_designer.py — SVG по LayoutPlan, async до 5 параллельно
+- [x] core/orchestrator.py — полный пайплайн с кэшем, батчами, async
+- [x] core/llm_client.py — system_instruction + call_llm_async + semaphore
 - [x] core/prompt_assembler.py — модульная сборка промптов
 - [x] core/llm_normalize.py — нормализация ответов AI
+- [x] core/grid_calculator.py — создан, но НЕ используется (Junior сам считает)
+- [x] models/contracts.py — все контракты v2
+- [x] prompts/senior_designer.md — промпт Senior
+- [x] prompts/junior_designer.md — промпт Junior v2
 
-### Junior Designer
-- [ ] agents/junior_designer.py — SVG по инструкциям Senior'а
-- [ ] prompts/junior_designer.md
-
-### Валидатор
-- [ ] postprocess/validator.py — XML валидность, bounds, текст не вылезает
-
-### Inspection
-- [ ] agents/inspector.py — визуальная проверка → возврат к Senior (макс 2)
-- [ ] prompts/inspector.md
-
-### Orchestrator v2
-- [ ] core/orchestrator.py — новый пайплайн с циклом
-
----
-
-## 📋 ФАЗА 4.2: Новая дизайн-система
-
-### Дизайн-конфиги (готово)
+### Фаза 4.2: Дизайн-система (конфиги)
 - [x] config/core_rules.md — 12-колоночная сетка, 6 объектов
+- [x] config/classifier.md — схема классификации
 - [x] config/card.md — правила карточек
 - [x] config/patterns.md — визуальные паттерны
 - [x] config/modules_map.md — карта загрузки модулей
@@ -55,15 +32,28 @@
 - [x] config/headers/ — type_a, type_b, type_c
 - [x] config/styles/ — strict.md, soft.md
 
-### Junior Designer v2
-- [ ] agents/junior_designer.py — переписать под LayoutPlan + prompt_assembler
-- [ ] prompts/junior_designer.md — переписать под новые правила
+---
 
-### Валидатор
-- [ ] postprocess/validator.py — проверка сетки, bounds, overlap, text overflow
+## 🔧 Нужно пофиксить (следующий чат)
 
-### Inspection
-- [ ] agents/inspector.py — AI визуальная проверка
+### Качество SVG (ПРИОРИТЕТ 1)
+- [ ] Junior не центрирует контент вертикально — огромные пустоты внизу
+- [ ] Senior кладёт несколько карточек в 1 колонку grid_span=12 вместо 6+6
+- [ ] Senior создаёт отдельный text-ряд для короткого подзаголовка (должен быть subtitle)
+- [ ] Промпты junior_designer.md и senior_designer.md нуждаются в доработке
+- [ ] grid_calculator.py — отключен от Junior, возможно удалить
+
+### Чистка кода (ПРИОРИТЕТ 2)
+- [ ] Удалить старые неиспользуемые контракты из contracts.py (DesignInstruction, BlockInstruction, SlideClassificationFinal и др.)
+- [ ] Удалить мёртвый код из агентов
+- [ ] Проверить все импорты — убрать неиспользуемые
+- [ ] config.py: MODEL_INSPECTOR и MODEL_CHEAP указывают на gemini-3.1-flash-lite-preview (404 в Vertex)
+
+---
+
+## 📋 ФАЗА 4.3: Валидатор + Inspector
+- [ ] postprocess/validator.py — XML валидность, bounds, overlap, text overflow
+- [ ] agents/inspector.py — AI визуальная проверка → возврат к Senior (макс 2)
 - [ ] prompts/inspector.md
 
 ---
@@ -88,13 +78,27 @@
 - [ ] Постпроцессор скругляет ВСЕ Rectangle
 - [ ] map_pipeline шаги 4-5 заглушки
 
+---
+
 ## 📝 Решения принятые
-- Локальные модели (Ollama) ненадёжны для структурированного JSON — используем Gemini
-- Vision: простая роль (описание + флаги), группировку делает Classifier
+- Локальные модели (Ollama) ненадёжны — используем Gemini
+- Vision: простая роль, группировку делает Classifier
 - Фильтрация мелких шейпов перед Classifier (w>100 или h>50)
-- Ollama client оставлен на будущее
-- Дизайн-система: 12 колонок, Senior мыслит в колонках, Python конвертирует в пиксели
-- 3 типа заголовков: A (rigid), B (floating), C (top) — выбирается один раз на презентацию
-- 2 стиля: strict, soft — определяет Classifier
+- Дизайн-система: 12 колонок, Senior мыслит в колонках
+- grid_calculator отключен — Junior сам рассчитывает позиции по правилам из промпта
+- 3 типа заголовков: A (rigid), B (floating), C (top)
+- 2 стиля: strict, soft
 - 6 типов объектов: heading, text, card, table, chart, visual
-- Промпты модульные: core_rules + style + header + card/patterns (по необходимости)
+- Промпты модульные: core_rules + style + header + card/patterns
+- system_instruction для всех агентов — rules отдельно от данных
+- Classifier: батч до 20 слайдов (без vision) или поштучно (с vision)
+- Senior: батч до 10 слайдов
+- Junior: async параллельно до 5 слайдов
+- Кэш между агентами: temp/cache/ (classification, layout_plan, svg)
+- Orchestrator поддерживает: --no-cache, --no-vision, --no-batch, --slides=0,1,2
+
+## ⚡ Оптимизации сделанные
+- system_instruction — rules грузятся 1 раз, не в каждый промпт
+- Батчинг Classifier + Senior — меньше API вызовов
+- Async Junior — 5 слайдов параллельно вместо последовательно
+- Кэш — повторный запуск не тратит токены

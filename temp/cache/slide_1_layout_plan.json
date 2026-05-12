@@ -1,0 +1,63 @@
+{
+  "slide_index": 1,
+  "header_type": "B",
+  "style_mode": "soft",
+  "needs_footer": true,
+  "composition_schema": "A",
+  "rows": [
+    {
+      "row_id": "r0",
+      "columns": [
+        {
+          "col_id": "c0",
+          "grid_span": 12,
+          "object_type": "heading",
+          "visual_subtype": null,
+          "content": {
+            "title": "НЕПОЛНЫЙ ОХВАТ ПРИГОРОДНЫХ НАСЕЛЕННЫХ ПУНКТОВ",
+            "subtitle": null
+          },
+          "render": "ai"
+        }
+      ]
+    },
+    {
+      "row_id": "r1",
+      "columns": [
+        {
+          "col_id": "c1",
+          "grid_span": 5,
+          "object_type": "card",
+          "visual_subtype": null,
+          "content": {
+            "cards": [
+              {
+                "icon": "users",
+                "title": null,
+                "number": "85 000+",
+                "body": "человек пригородного населения не обслуживается.\n\nЛегенда:\n• Обслуживаемые населенные пункты\n• Необслуживаемые населенные пункты"
+              }
+            ]
+          },
+          "render": "ai"
+        },
+        {
+          "col_id": "c2",
+          "grid_span": 7,
+          "object_type": "visual",
+          "visual_subtype": "map",
+          "content": {
+            "visual_subtype": "map",
+            "description": "Карта пригородных населенных пунктов с указанием охвата обслуживанием. На карте отмечены: пос. Аркабай, пос. Карабулак, пос. Коктал, пос. Достык, пос. Байтерек, пос. Толе би, пос. Жапек Батыра, пос. Косозен, пос. Н. Тлендиев, Дачи Береке, пос. Арман, пос. Екпенды, пос. Жармухамбет, пос. Улан, пос. Жанаарна, пос. Куйган и другие."
+          },
+          "render": "external"
+        }
+      ]
+    }
+  ],
+  "footer": {
+    "left": "",
+    "right": "2"
+  },
+  "design_notes": "The informational content on the left is consolidated into a single card for layout purposes. The main metric should be visually dominant, with the legend text as secondary information within the same block. The map on the right should be vertically centered relative to the card on the left."
+}

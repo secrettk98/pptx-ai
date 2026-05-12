@@ -1,0 +1,22 @@
+{
+  "slide_index": 4,
+  "slide_role": "content",
+  "objects": [
+    "heading",
+    "text",
+    "card"
+  ],
+  "visual_subtype": "null",
+  "pattern_hint": "null",
+  "header_type": "A",
+  "needs_footer": false,
+  "style_mode": "soft",
+  "series_context": "identical_series",
+  "overload": false,
+  "client_constraints": {
+    "verbatim_text": false,
+    "preserve_template": false,
+    "allow_slide_split": true,
+    "allow_content_removal": false
+  }
+}

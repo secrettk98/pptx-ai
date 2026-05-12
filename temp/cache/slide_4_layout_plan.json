@@ -1,0 +1,71 @@
+{
+  "slide_index": 4,
+  "header_type": "A",
+  "style_mode": "soft",
+  "needs_footer": false,
+  "composition_schema": "A",
+  "rows": [
+    {
+      "row_id": "r0",
+      "columns": [
+        {
+          "col_id": "c0",
+          "grid_span": 12,
+          "object_type": "heading",
+          "visual_subtype": null,
+          "content": {
+            "title": "РАСПРЕДЕЛЕНИЕ НАСЕЛЕНИЯ ПО ВИДАМ ТРАНСПОРТА",
+            "subtitle": "По Талгарскому направлению"
+          },
+          "render": "ai"
+        }
+      ]
+    },
+    {
+      "row_id": "r1",
+      "columns": [
+        {
+          "col_id": "c1",
+          "grid_span": 12,
+          "object_type": "text",
+          "visual_subtype": null,
+          "content": {
+            "body": "Анализ 9-ти маршрутов: №8,54,100,204,207,209,210,224,252.",
+            "bullet_points": []
+          },
+          "render": "ai"
+        }
+      ]
+    },
+    {
+      "row_id": "r2",
+      "columns": [
+        {
+          "col_id": "c2",
+          "grid_span": 12,
+          "object_type": "card",
+          "visual_subtype": null,
+          "content": {
+            "cards": [
+              {
+                "icon": "sun",
+                "title": "УТРО 06:30 – 07:30 чч.",
+                "number": "5 436 чел/час",
+                "body": "Общественный транспорт: 2 165 чел./час (41%)\nАвтомобили (1 633 авто): 3 271 чел./час (59%)"
+              },
+              {
+                "icon": "moon",
+                "title": "ВЕЧЕР 17:00 – 18:00 чч.",
+                "number": "5 404 чел/час",
+                "body": "Общественный транспорт: 1 714 чел./час (32%)\nАвтомобили (1 851 авто): 3 690 чел./час (68%)"
+              }
+            ]
+          },
+          "render": "ai"
+        }
+      ]
+    }
+  ],
+  "footer": null,
+  "design_notes": "The two cards in r2 should be rendered side-by-side in a 6+6 grid. The 'body' of each card contains two lines of data; please format them as a clear list within the card, separating the label from the value. The 'number' field represents the total for the card."
+}
