@@ -1,76 +1,136 @@
-"""Агент для финальной классификации слайдов на основе данных Vision и Parser."""
+"""Агент для классификации слайдов на основе изображения и распарсенных данных."""
 
 import json
 import logging
 import time
+import sys
 from pathlib import Path
 
 from core.llm_client import call_llm
-from core.config import PROMPTS_DIR
-from models.contracts import SlideClassificationFinal
+from core.config import MODEL_CLASSIFIER, CONFIG_DIR
+from core.llm_normalize import normalize_for_model
+from models.contracts import SlideClassificationV2
 
 logger = logging.getLogger(__name__)
 
-from core.config import MODEL_CLASSIFIER
-MODEL_NAME = MODEL_CLASSIFIER
 
-def classify_slide_final(json_vision: dict, json_parsed: dict, slide_index: int) -> SlideClassificationFinal:
-    """Объединяет JSON_VISION и JSON_PARSED в финальную классификацию с помощью LLM."""
-    logger.info(f"Начало финальной классификации для слайда {slide_index}")
+def _get_core_rules_section_1() -> str:
+    """Извлекает секцию §1 из файла core_rules.md для контекста."""
+    try:
+        rules_path = CONFIG_DIR / "core_rules.md"
+        if not rules_path.exists():
+            logger.warning(f"Файл правил {rules_path} не найден")
+            return ""
+            
+        content = rules_path.read_text(encoding="utf-8")
+        start_idx = content.find("§1")
+        if start_idx == -1:
+            return content
+            
+        end_idx = content.find("§2", start_idx)
+        if end_idx == -1:
+            return content[start_idx:]
+            
+        return content[start_idx:end_idx]
+    except Exception as e:
+        logger.error(f"Ошибка при чтении core_rules.md: {e}")
+        return ""
+
+
+def classify_slide_v2(image_path: str, parsed_slide: dict, slide_index: int, user_header_pref: str = "auto") -> SlideClassificationV2:
+    """Классифицирует слайд на основе изображения и распарсенных данных."""
+    logger.info(f"Начало классификации для слайда {slide_index}")
     
     try:
-        prompt_path = PROMPTS_DIR / "classifier.md"
-        system_prompt = prompt_path.read_text(encoding="utf-8")
+        classifier_path = CONFIG_DIR / "classifier.md"
+        classifier_prompt = classifier_path.read_text(encoding="utf-8")
         
-        vision_str = json.dumps(json_vision, ensure_ascii=False, indent=2)
-        parsed_str = json.dumps(json_parsed, ensure_ascii=False, indent=2)
+        logger.info("Чтение секции §1 из core_rules.md")
+        rules_context = _get_core_rules_section_1()
         
-        prompt = f"{system_prompt}\n\n# INPUT\n\n## JSON_VISION\n{vision_str}\n\n## JSON_PARSED\n{parsed_str}"
+        parsed_str = json.dumps(parsed_slide, ensure_ascii=False, indent=2)
+        prompt = f"{classifier_prompt}\n\n# CORE RULES CONTEXT\n{rules_context}\n\n# PARSED DATA\n{parsed_str}\n\n# USER HEADER PREFERENCE\n{user_header_pref}"
         
-        logger.info(f"Вызов LLM {MODEL_NAME} для классификации (JSON mode)")
-        response = call_llm(prompt=prompt, model_name=MODEL_NAME, json_mode=True)
+        logger.info(f"Вызов LLM {MODEL_CLASSIFIER} для классификации слайда {slide_index}")
+        raw_response = call_llm(
+            prompt=prompt, 
+            model_name=MODEL_CLASSIFIER, 
+            image_path=image_path, 
+            json_mode=True
+        )
         
-        clean_response = response.strip()
-        if clean_response.startswith("```json"):
-            clean_response = clean_response[7:]
-        elif clean_response.startswith("```"):
-            clean_response = clean_response[3:]
-            
-        if clean_response.endswith("```"):
-            clean_response = clean_response[:-3]
-            
-        data = json.loads(clean_response.strip())
+        logger.info("Очистка ответа от Markdown-разметки")
+        clean_response = raw_response.replace("```json", "").replace("```", "").strip()
+        
+        data = json.loads(clean_response)
         data.pop("slide_index", None)
         
-        from core.llm_normalize import normalize_for_model
-        data = normalize_for_model(data, SlideClassificationFinal)
-        result = SlideClassificationFinal(slide_index=slide_index, **data)
-        logger.info(f"Слайд {slide_index} успешно классифицирован (тип: {result.slide_type}, групп: {len(result.groups)})")
+        logger.info("Нормализация ответа под модель SlideClassificationV2")
+        data = normalize_for_model(data, SlideClassificationV2)
+        result = SlideClassificationV2(slide_index=slide_index, **data)
         
+        logger.info(f"Слайд {slide_index} классифицирован: role={result.slide_role}, objects={len(result.objects)}, header={result.header_type}")
         return result
         
     except Exception as e:
-        logger.error(f"Ошибка при финальной классификации слайда {slide_index}: {e}")
+        logger.error(f"Ошибка при классификации слайда {slide_index}: {e}")
         raise
 
 
-def classify_all_final(vision_results: list[dict], parsed_results: list[dict]) -> list[SlideClassificationFinal]:
-    """Пакетная обработка всех слайдов для получения финальной классификации."""
-    logger.info(f"Запуск пакетной классификации для {len(vision_results)} слайдов")
+def classify_all_v2(image_paths: list[str], parsed_slides: list[dict], user_header_pref: str = "auto") -> list[SlideClassificationV2]:
+    """Пакетная классификация всех переданных слайдов."""
+    logger.info(f"Запуск пакетной классификации для {len(image_paths)} слайдов")
     results = []
     
     try:
-        for idx, (vision, parsed) in enumerate(zip(vision_results, parsed_results)):
+        for idx, (img_path, parsed) in enumerate(zip(image_paths, parsed_slides)):
             if idx > 0:
-                logger.info("Ожидание 2 секунды перед следующим вызовом API...")
+                logger.info("Ожидание 2 секунды перед следующим вызовом API")
                 time.sleep(2)
                 
-            result = classify_slide_final(vision, parsed, slide_index=idx)
+            result = classify_slide_v2(img_path, parsed, slide_index=idx, user_header_pref=user_header_pref)
             results.append(result)
             
         logger.info("Пакетная классификация успешно завершена")
         return results
         
     except Exception as e:
-        logger.error(f"Сбой в процессе пакетной классификации: {e}")
+        logger.error(f"Ошибка при пакетной классификации: {e}")
         raise
+
+
+if __name__ == "__main__":
+    from parsers.slide_renderer import render_slides
+    from parsers.pptx_parser import parse_pptx_rich
+    
+    logging.basicConfig(level=logging.INFO, format="%(levelname)s - %(message)s")
+    
+    pptx_path = sys.argv[1] if len(sys.argv) > 1 else "projects/test_map/test_maps.pptx"
+    logger.info(f"Запуск тестовой классификации для: {pptx_path}")
+    
+    try:
+        logger.info("Рендеринг слайдов")
+        test_images = render_slides(pptx_path)
+        
+        logger.info("Парсинг содержимого слайдов")
+        parsed_presentation = parse_pptx_rich(pptx_path)
+        
+        if not test_images or not parsed_presentation:
+            logger.error("Не удалось получить данные для классификации")
+            sys.exit(1)
+            
+        # ParsedPresentation - это объект (Pydantic), обращаемся к атрибуту slides
+        # Метод принимает dict, поэтому используем model_dump()
+        first_slide_parsed = parsed_presentation.slides[0].model_dump()
+        
+        test_result = classify_slide_v2(test_images[0], first_slide_parsed, slide_index=0)
+        
+        print(f"slide_role: {test_result.slide_role}")
+        print(f"objects: {len(test_result.objects)}")
+        print(f"visual_subtype: {test_result.visual_subtype}")
+        print(f"header_type: {test_result.header_type}")
+        print(f"style_mode: {test_result.style_mode}")
+        print(f"objects list: {test_result.objects}")
+        
+    except Exception as err:
+        logger.error(f"Ошибка в блоке тестирования: {err}")

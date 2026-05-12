@@ -111,6 +111,28 @@ class SlideClassificationFinal(BaseModel):
     color_palette: ColorPalette
     groups: list[SlideGroup]
     reverse_summary: list[str] = Field(default_factory=list, description="Сводный список reverse-типов для оркестратора")
+    # === ФАЗА 4.2: Новая архитектура (6 объектов) ===
+
+class ClientConstraints(BaseModel):
+    """Ограничения от клиента."""
+    verbatim_text: bool = False
+    preserve_template: bool = False
+    allow_slide_split: bool = True
+    allow_content_removal: bool = False
+
+class SlideClassificationV2(BaseModel):
+    """Выход Classifier v2 — по новой архитектуре 6 объектов."""
+    slide_index: int
+    slide_role: str = Field(description="content, title, divider, final, full_bleed")
+    objects: list[str] = Field(description="heading, text, card, table, chart, visual")
+    visual_subtype: Optional[str] = Field(default=None, description="photo, map, custom_infographic, flowchart, pattern, null")
+    pattern_hint: Optional[str] = Field(default=None, description="timeline, process, swot, matrix_2x2, hierarchy, cycle, funnel, pyramid, venn, null")
+    header_type: str = Field(default="B", description="A, B, C, none")
+    needs_footer: bool = Field(default=True)
+    style_mode: str = Field(default="soft", description="strict, soft")
+    series_context: str = Field(default="standalone", description="standalone, identical_series, similar_series")
+    overload: bool = Field(default=False)
+    client_constraints: ClientConstraints = Field(default_factory=ClientConstraints)
 
 # === Обогащённый парсер ===
 
@@ -174,3 +196,35 @@ class DesignInstruction(BaseModel):
     blocks: list[BlockInstruction] = Field(description="Упорядоченный список блоков для отрисовки")
     design_notes: str = Field(default="", description="Заметки для Junior Designer — особые указания")
     reverse_needed: list[str] = Field(default_factory=list, description="Список reverse_type которые нужно обработать перед отрисовкой")
+
+# === Senior Designer v2 ===
+
+class ColumnInstruction(BaseModel):
+    """Одна колонка в ряду layout-плана."""
+    col_id: str = Field(description="c0, c1, c2...")
+    grid_span: int = Field(description="Кол-во колонок сетки из 12")
+    object_type: str = Field(description="heading, text, card, table, chart, visual")
+    visual_subtype: Optional[str] = Field(default=None, description="photo, map, custom_infographic, flowchart, pattern")
+    content: dict = Field(default_factory=dict, description="Контент объекта")
+    render: str = Field(default="ai", description="ai или external")
+
+class RowInstruction(BaseModel):
+    """Один ряд в layout-плане."""
+    row_id: str = Field(description="r0, r1, r2...")
+    columns: list[ColumnInstruction] = Field(description="Колонки в ряду, span сумма = 12")
+
+class FooterInstruction(BaseModel):
+    """Футер слайда."""
+    left: str = Field(default="")
+    right: str = Field(default="")
+
+class LayoutPlan(BaseModel):
+    """Выход Senior Designer v2 — layout-план в терминах сетки."""
+    slide_index: int
+    header_type: str = Field(default="B", description="A, B, C, none")
+    style_mode: str = Field(default="soft", description="strict, soft")
+    needs_footer: bool = Field(default=True)
+    composition_schema: str = Field(default="A", description="A, B, C, D")
+    rows: list[RowInstruction] = Field(description="Ряды сверху вниз")
+    footer: Optional[FooterInstruction] = Field(default=None)
+    design_notes: str = Field(default="")
