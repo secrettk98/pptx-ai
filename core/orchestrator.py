@@ -1,4 +1,4 @@
-"""Orchestrator v2 — полный пайплайн с батчингом и async."""
+"""Orchestrator v4 — Parser → Strategy → Architect → LayoutEngine → SVG Renderer."""
 
 import json
 import logging
@@ -6,10 +6,10 @@ import sys
 import time
 from pathlib import Path
 
-from core.config import TEMP_DIR, COLOR_ACCENT_DEFAULT
+from core.config import TEMP_DIR
 from models.contracts import (
-    SlideClassificationV2,
     LayoutPlan,
+    SlideGeometry,
     DesignedSlide,
     PresentationStrategy,
 )
@@ -19,7 +19,9 @@ logger = logging.getLogger(__name__)
 CACHE_DIR = TEMP_DIR / "cache"
 
 
-# === КЭШИРОВАНИЕ ===
+# ═══════════════════════════════════════════════════════════════
+#  КЭШИРОВАНИЕ
+# ═══════════════════════════════════════════════════════════════
 
 def _cache_path(slide_idx: int | None, stage: str, ext: str = "json") -> Path:
     if slide_idx is None:
@@ -59,7 +61,9 @@ def clear_cache():
         logger.info("Кэш очищен")
 
 
-# === ПАЙПЛАЙН ===
+# ═══════════════════════════════════════════════════════════════
+#  ПАЙПЛАЙН v4
+# ═══════════════════════════════════════════════════════════════
 
 def run_pipeline(
     pptx_path: str,
@@ -70,63 +74,67 @@ def run_pipeline(
     use_batch: bool = True,
 ):
     """
-    Полный пайплайн: Parser → Strategy → Classifier → Senior → Junior.
+    Полный пайплайн v4:
+      Parser → Strategy Director → Architect → LayoutEngine → SVG Renderer.
 
     Args:
-        pptx_path: путь к PPTX
-        accent_color: ручное переопределение цвета (None = берётся из Strategy)
+        pptx_path: путь к PPTX файлу
+        accent_color: ручной цвет (перебивает Strategy)
         use_cache: читать/писать кэш
-        slides: список индексов (None = все)
-        use_vision: True = поштучно с картинкой, False = батч без картинок
-        use_batch: True = батч Senior, False = поштучно
+        slides: список индексов слайдов (None = все)
+        use_vision: поштучно с картинкой (True) / батч без картинок (False)
+        use_batch: батч Architect (True) / поштучно (False)
     """
+    # Ленивые импорты — чтобы не ломалось при import orchestrator
     from parsers.slide_renderer import render_slides
     from parsers.pptx_parser import parse_pptx_rich
     from agents.strategy_director import build_strategy
-    from agents.classifier import classify_slide_v2, classify_batch_v2
-    from agents.senior_designer import design_slide_senior, design_batch_senior
-    from agents.junior_designer import design_all_junior
+    from agents.architect import design_all
+    from core.layout_engine import compute_geometry
+    from core.svg_renderer import render_slide
 
     start_time = time.time()
     logger.info(f"{'='*60}")
-    logger.info(f"PIPELINE START: {pptx_path}")
+    logger.info(f"PIPELINE v4 START: {pptx_path}")
     logger.info(f"vision={use_vision}, batch={use_batch}, cache={use_cache}")
     logger.info(f"{'='*60}")
 
     if not use_cache:
         clear_cache()
 
-    # ШАГ 1: Рендеринг
-    logger.info("ШАГ 1: Рендеринг")
+    # ── ШАГ 1: Рендеринг слайдов в JPG ─────────────────────────
+    logger.info("ШАГ 1: Рендеринг PPTX → JPG")
     images = render_slides(pptx_path)
 
-    # ШАГ 2: Парсинг
-    logger.info("ШАГ 2: Парсинг")
+    # ── ШАГ 2: Парсинг PPTX ────────────────────────────────────
+    logger.info("ШАГ 2: Парсинг PPTX")
     parsed_pres = parse_pptx_rich(pptx_path)
 
     if not images or not parsed_pres:
         logger.error("Нет данных из презентации!")
         return []
 
-    if hasattr(parsed_pres, "slides"):
-        parsed_list = [s.model_dump() for s in parsed_pres.slides]
-    else:
-        parsed_list = parsed_pres
+    parsed_list = [s.model_dump() for s in parsed_pres.slides]
 
-    # ШАГ 3: Strategy Director — ОДИН раз на всю презентацию
+    # ── ШАГ 3: Strategy Director (1 вызов на всю презу) ────────
     logger.info("ШАГ 3: Strategy Director")
+    t3 = time.time()
+
     strategy: PresentationStrategy | None = (
         _load_cache(None, "strategy", PresentationStrategy) if use_cache else None
     )
     if strategy:
-        logger.info("[CACHE] Strategy загружена из кэша")
+        logger.info("[CACHE] Strategy загружена")
     else:
-        strategy = build_strategy(images, parsed_list)
+        strategy = build_strategy(
+            [str(img) for img in images],
+            parsed_list,
+        )
         _save_cache(None, "strategy", strategy)
 
-    # Ручной accent_color перебивает значение из Strategy
+    # Ручной accent перебивает
     if accent_color:
-        logger.info(f"accent_color вручную: {accent_color} (перебивает {strategy.accent_color})")
+        logger.info(f"accent вручную: {accent_color} (было {strategy.accent_color})")
         strategy.accent_color = accent_color
 
     logger.info(
@@ -134,10 +142,9 @@ def run_pipeline(
         f"mode={strategy.presentation_mode}, accent={strategy.accent_color}, "
         f"rewrite={strategy.allow_rewrite}"
     )
+    time_strategy = time.time() - t3
 
-    strategy_time = time.time() - start_time
-
-    # Фильтр слайдов
+    # ── Фильтр слайдов ─────────────────────────────────────────
     total = min(len(images), len(parsed_list))
     if slides is not None:
         indices = [i for i in slides if i < total]
@@ -146,152 +153,106 @@ def run_pipeline(
 
     logger.info(f"Слайдов к обработке: {len(indices)} из {total}")
 
-    sel_images = [images[i] for i in indices]
+    sel_images = [str(images[i]) for i in indices]
     sel_parsed = [parsed_list[i] for i in indices]
 
-    # ШАГ 4: Классификация
-    logger.info(f"ШАГ 4: Классификация ({len(indices)} слайдов)")
+    # ── ШАГ 4: Architect (классификация + layout plan) ──────────
+    logger.info(f"ШАГ 4: Architect ({len(indices)} слайдов)")
+    t4 = time.time()
 
-    classifications = []
-    uncached_indices = []
-    uncached_images = []
-    uncached_parsed = []
+    layout_plans: list[LayoutPlan] = []
+    need_architect_idx = []  # позиция в sel_*
+    need_architect_images = []
+    need_architect_parsed = []
+    need_architect_slides = []  # реальный slide_index
 
-    for i, idx in enumerate(indices):
+    for pos, idx in enumerate(indices):
         cached = (
-            _load_cache(idx, "classification", SlideClassificationV2)
-            if use_cache
-            else None
+            _load_cache(idx, "layout_plan", LayoutPlan) if use_cache else None
         )
-        if cached:
-            logger.info(f"[CACHE] Классификация слайда {idx}")
-            classifications.append(cached)
-        else:
-            classifications.append(None)
-            uncached_indices.append(i)
-            uncached_images.append(sel_images[i])
-            uncached_parsed.append(sel_parsed[i])
-
-    if uncached_indices:
-        logger.info(f"Классифицируем {len(uncached_indices)} слайдов (не в кэше)")
-
-        if use_vision:
-            for j, (img, parsed) in enumerate(zip(uncached_images, uncached_parsed)):
-                real_idx = indices[uncached_indices[j]]
-                result = classify_slide_v2(img, parsed, slide_index=real_idx)
-                # Принудительно перетираем header_type и style_mode из Strategy
-                result.header_type = (
-                    "A" if strategy.header_type == "fixed" else "B"
-                )
-                result.style_mode = strategy.style_mode
-                classifications[uncached_indices[j]] = result
-                _save_cache(real_idx, "classification", result)
-        else:
-            batch_results = classify_batch_v2(uncached_images, uncached_parsed)
-            for j, result in enumerate(batch_results):
-                real_idx = indices[uncached_indices[j]]
-                result.slide_index = real_idx
-                result.header_type = (
-                    "A" if strategy.header_type == "fixed" else "B"
-                )
-                result.style_mode = strategy.style_mode
-                classifications[uncached_indices[j]] = result
-                _save_cache(real_idx, "classification", result)
-
-    cls_time = time.time() - start_time - strategy_time
-    logger.info(f"Классификация завершена за {cls_time:.1f}с")
-
-    # ШАГ 5: Senior Designer
-    logger.info(f"ШАГ 5: Senior Designer ({len(indices)} слайдов)")
-
-    layout_plans = []
-    uncached_cls = []
-    uncached_parsed_sr = []
-    uncached_sr_indices = []
-
-    for i, idx in enumerate(indices):
-        cached = _load_cache(idx, "layout_plan", LayoutPlan) if use_cache else None
         if cached:
             logger.info(f"[CACHE] LayoutPlan слайда {idx}")
             layout_plans.append(cached)
         else:
-            layout_plans.append(None)
-            uncached_sr_indices.append(i)
-            uncached_cls.append(classifications[i])
-            uncached_parsed_sr.append(sel_parsed[i])
+            layout_plans.append(None)  # placeholder
+            need_architect_idx.append(pos)
+            need_architect_images.append(sel_images[pos])
+            need_architect_parsed.append(sel_parsed[pos])
+            need_architect_slides.append(idx)
 
-        if uncached_sr_indices:
-            logger.info(f"Senior Designer для {len(uncached_sr_indices)} слайдов")
+    if need_architect_idx:
+        logger.info(f"Architect для {len(need_architect_idx)} слайдов")
 
-            if use_batch and len(uncached_cls) > 1:
-                batch_results = design_batch_senior(
-                    uncached_cls, uncached_parsed_sr, strategy.accent_color,
-                    allow_rewrite=strategy.allow_rewrite
-                )
-                for j, result in enumerate(batch_results):
-                    real_idx = indices[uncached_sr_indices[j]]
-                    result.slide_index = real_idx
-                    layout_plans[uncached_sr_indices[j]] = result
-                    _save_cache(real_idx, "layout_plan", result)
-            else:
-                for j, (cls, parsed) in enumerate(zip(uncached_cls, uncached_parsed_sr)):
-                    result = design_slide_senior(
-                        cls, parsed, strategy.accent_color,
-                        allow_rewrite=strategy.allow_rewrite
-                    )
-                    layout_plans[uncached_sr_indices[j]] = result
-                    real_idx = indices[uncached_sr_indices[j]]
-                    _save_cache(real_idx, "layout_plan", result)
-
-    sr_time = time.time() - start_time - strategy_time - cls_time
-    logger.info(f"Senior Designer завершён за {sr_time:.1f}с")
-
-    # ШАГ 6: Junior Designer (async параллельно)
-    logger.info(f"ШАГ 6: Junior Designer ({len(indices)} слайдов, async)")
-
-    uncached_plans = []
-    uncached_jr_cls = []
-    uncached_jr_indices = []
-    cached_results = {}
-
-    for i, idx in enumerate(indices):
-        if use_cache:
-            svg_path = _cache_path(idx, "svg", "svg")
-            if svg_path.exists():
-                logger.info(f"[CACHE] SVG слайда {idx}")
-                svg_code = svg_path.read_text(encoding="utf-8")
-                cached_results[i] = DesignedSlide(slide_index=idx, svg_code=svg_code)
-                continue
-
-        uncached_jr_indices.append(i)
-        uncached_plans.append(layout_plans[i])
-        uncached_jr_cls.append(classifications[i])
-
-    if uncached_jr_indices:
-        logger.info(f"Junior async для {len(uncached_jr_indices)} слайдов")
-        junior_results = design_all_junior(
-            uncached_plans, uncached_jr_cls, strategy.accent_color
+        architect_results = design_all(
+            images=need_architect_images,
+            parsed_slides=need_architect_parsed,
+            strategy=strategy,
+            slide_indices=need_architect_slides,
+            use_vision=use_vision,
+            use_batch=use_batch,
         )
 
-        for j, result in enumerate(junior_results):
-            real_idx = indices[uncached_jr_indices[j]]
-            result.slide_index = real_idx
-            _save_cache(real_idx, "svg", result.svg_code, ext="svg")
-            cached_results[uncached_jr_indices[j]] = result
+        for j, plan in enumerate(architect_results):
+            pos = need_architect_idx[j]
+            layout_plans[pos] = plan
+            _save_cache(plan.slide_index, "layout_plan", plan)
 
-    results = [cached_results[i] for i in range(len(indices))]
+    time_architect = time.time() - t4
+    logger.info(f"Architect завершён за {time_architect:.1f}с")
 
+    # ── ШАГ 5: LayoutEngine (grid → пиксели) ───────────────────
+    logger.info(f"ШАГ 5: LayoutEngine ({len(indices)} слайдов)")
+    t5 = time.time()
+
+    geometries: list[SlideGeometry] = []
+    for plan in layout_plans:
+        geo = compute_geometry(plan, strategy)
+        geometries.append(geo)
+        _save_cache(plan.slide_index, "geometry", geo)
+
+    time_layout = time.time() - t5
+    logger.info(f"LayoutEngine завершён за {time_layout:.1f}с")
+
+    # ── ШАГ 6: SVG Renderer (пиксели → SVG) ────────────────────
+    logger.info(f"ШАГ 6: SVG Renderer ({len(indices)} слайдов)")
+    t6 = time.time()
+
+    results: list[DesignedSlide] = []
+    for geo in geometries:
+        # Проверяем кэш SVG
+        if use_cache:
+            svg_path = _cache_path(geo.slide_index, "svg", "svg")
+            if svg_path.exists():
+                logger.info(f"[CACHE] SVG слайда {geo.slide_index}")
+                svg_code = svg_path.read_text(encoding="utf-8")
+                results.append(DesignedSlide(
+                    slide_index=geo.slide_index, svg_code=svg_code
+                ))
+                continue
+
+        designed = render_slide(geo)
+        _save_cache(geo.slide_index, "svg", designed.svg_code, ext="svg")
+        results.append(designed)
+
+    time_svg = time.time() - t6
+    logger.info(f"SVG Renderer завершён за {time_svg:.1f}с")
+
+    # ── ИТОГО ───────────────────────────────────────────────────
     total_time = time.time() - start_time
     logger.info(f"\n{'='*60}")
-    logger.info(f"PIPELINE DONE: {len(results)} слайдов за {total_time:.1f}с")
-    logger.info(f"  Strategy:   {strategy_time:.1f}с")
-    logger.info(f"  Classifier: {cls_time:.1f}с")
-    logger.info(f"  Senior:     {sr_time:.1f}с")
-    logger.info(f"  Junior:     {total_time - strategy_time - cls_time - sr_time:.1f}с")
+    logger.info(f"PIPELINE v4 DONE: {len(results)} слайдов за {total_time:.1f}с")
+    logger.info(f"  Strategy:    {time_strategy:.1f}с")
+    logger.info(f"  Architect:   {time_architect:.1f}с")
+    logger.info(f"  LayoutEngine:{time_layout:.1f}с")
+    logger.info(f"  SVG Renderer:{time_svg:.1f}с")
     logger.info(f"{'='*60}")
 
     return results
 
+
+# ═══════════════════════════════════════════════════════════════
+#  CLI
+# ═══════════════════════════════════════════════════════════════
 
 if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO, format="%(levelname)s - %(message)s")
