@@ -38,34 +38,37 @@ def _make_config(json_mode: bool = False, temperature: float = 0.3) -> types.Gen
 def call_llm(
     prompt: str,
     model_name: str,
-    image_path: str | None = None,
+    image_path: str | list[str] | None = None,
     json_mode: bool = False,
     system_instruction: str | None = None
 ) -> str:
-    """Синхронный вызов LLM."""
+    """Синхронный вызов LLM. image_path может быть одной строкой или списком путей (мульти-изображения)."""
     logger.info(f"Запрос к LLM: {model_name}, json_mode={json_mode}")
 
-    # Роутинг на Ollama
+    # Роутинг на Ollama (только одно изображение)
     if model_name.startswith("ollama/"):
         real_model = model_name.replace("ollama/", "", 1)
+        single_img = image_path if isinstance(image_path, str) else None
         return call_ollama(prompt=prompt, model_name=real_model,
-                          image_path=image_path, json_mode=json_mode)
+                           image_path=single_img, json_mode=json_mode)
 
     client = _make_client()
     config = _make_config(json_mode=json_mode)
 
-    # System instruction
     if system_instruction:
         config.system_instruction = system_instruction
 
     contents = [prompt]
     if image_path is not None:
-        try:
-            image = Image.open(Path(image_path))
-            contents = [prompt, image]
-        except Exception as e:
-            logger.error(f"Ошибка загрузки изображения {image_path}: {e}")
-            raise
+        paths = image_path if isinstance(image_path, (list, tuple)) else [image_path]
+        for p in paths:
+            try:
+                image = Image.open(Path(p))
+                contents.append(image)
+            except Exception as e:
+                logger.error(f"Ошибка загрузки изображения {p}: {e}")
+                raise
+        logger.info(f"Передано {len(paths)} изображений в запрос")
 
     for attempt in range(LLM_MAX_RETRIES):
         try:

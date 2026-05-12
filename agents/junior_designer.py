@@ -6,11 +6,9 @@ import logging
 import sys
 from pathlib import Path
 
-from core.grid_calculator import calc_layout_geometry
 from core.llm_client import call_llm, call_llm_async
 from core.config import MODEL_DESIGNER, PROMPTS_DIR
 from core.prompt_assembler import assemble_prompt
-from core.grid_calculator import calc_layout_geometry
 from models.contracts import LayoutPlan, SlideClassificationV2, DesignedSlide
 
 logger = logging.getLogger(__name__)

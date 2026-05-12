@@ -10,8 +10,6 @@ from pptx.enum.dml import MSO_THEME_COLOR
 from pptx.dml.color import RGBColor
 
 from models.contracts import (
-    SlideInfo, 
-    PresentationStructure,
     ParsedPresentation,
     ParsedSlide,
     ParsedShape,
@@ -33,186 +31,143 @@ def _iter_all_shapes(shapes) -> list:
     return all_shapes
 
 
-def parse_pptx(pptx_path: str | Path) -> PresentationStructure:
-    """Извлекает базовую структуру, тексты и метаданные слайдов из файла презентации."""
-    path = Path(pptx_path)
-    logger.info(f"Начало базового парсинга: {path.name}")
-
+def _map_shape_type(shape) -> str:
+    """Определяет тип шейпа в виде строки."""
     try:
-        prs = Presentation(str(path))
-    except Exception as e:
-        logger.error(f"Не удалось открыть файл {path}: {e}")
-        raise RuntimeError(f"Ошибка чтения PPTX: {e}") from e
-
-    try:
-        slide_width = prs.slide_width.pt
-        slide_height = prs.slide_height.pt
-        slides_info: list[SlideInfo] = []
-
-        for idx, slide in enumerate(prs.slides):
-            texts = []
-            image_count = 0
-            shape_count = len(slide.shapes)
-            
-            for shape in _iter_all_shapes(slide.shapes):
-                if getattr(shape, "has_text_frame", False):
-                    for paragraph in shape.text_frame.paragraphs:
-                        text = paragraph.text.strip()
-                        if text:
-                            texts.append(text)
-                
-                if getattr(shape, "shape_type", None) == 13:
-                    image_count += 1
-
-            slide_info = SlideInfo(
-                slide_index=idx,
-                width=slide_width,
-                height=slide_height,
-                texts=texts,
-                image_count=image_count,
-                shape_count=shape_count
-            )
-            slides_info.append(slide_info)
-
-        result = PresentationStructure(
-            filename=path.name,
-            slide_count=len(slides_info),
-            slides=slides_info
-        )
-        
-        logger.info(f"Распарсено {result.slide_count} слайдов")
-        return result
-
-    except Exception as e:
-        logger.error(f"Ошибка при разборе содержимого презентации: {e}")
-        raise RuntimeError(f"Сбой парсинга слайдов: {e}") from e
-
-
-def _map_shape_type(shape_type_code: int) -> str:
-    """Конвертирует числовой код типа фигуры в строковый идентификатор."""
-    mapping = {
-        1: "autoshape", 5: "freeform", 6: "group", 13: "picture",
-        14: "placeholder", 17: "textbox", 19: "table"
-    }
-    return mapping.get(shape_type_code, "other")
+        if shape.shape_type == MSO_SHAPE_TYPE.PICTURE:
+            return "image"
+        elif shape.shape_type == MSO_SHAPE_TYPE.TABLE:
+            return "table"
+        elif shape.shape_type == MSO_SHAPE_TYPE.GROUP:
+            return "group"
+        elif shape.has_text_frame:
+            return "text"
+        else:
+            return "shape"
+    except Exception:
+        return "unknown"
 
 
 def _extract_position(shape) -> GroupPosition:
-    """Извлекает координаты и размеры фигуры с конвертацией EMU в пиксели."""
+    """Извлекает позицию и размеры шейпа."""
     try:
         return GroupPosition(
-            x=round(shape.left / 9525),
-            y=round(shape.top / 9525),
-            w=round(shape.width / 9525),
-            h=round(shape.height / 9525)
+            x=shape.left / 9525 if shape.left else 0.0,
+            y=shape.top / 9525 if shape.top else 0.0,
+            w=shape.width / 9525 if shape.width else 0.0,
+            h=shape.height / 9525 if shape.height else 0.0
         )
-    except Exception as e:
-        logger.warning(f"Ошибка получения координат для фигуры {getattr(shape, 'name', 'unknown')}: {e}")
-        return GroupPosition(x=0, y=0, w=0, h=0)
+    except Exception:
+        return GroupPosition(x=0.0, y=0.0, w=0.0, h=0.0)
 
 
-def _extract_text_styles(shape, style: ShapeStyle) -> None:
-    """Извлекает стили текста (шрифт, размер, цвет, выравнивание) из первого run."""
-    if not getattr(shape, "has_text_frame", False):
-        return
-        
+def _extract_text_styles(shape) -> ShapeStyle:
+    """Извлекает стили текста (шрифт, размер, цвет и начертание)."""
+    style = ShapeStyle()
     try:
+        if not shape.has_text_frame:
+            return style
         for paragraph in shape.text_frame.paragraphs:
-            if paragraph.alignment is not None:
-                align_map = {0: "left", 1: "center", 2: "right"}
-                style.align = align_map.get(paragraph.alignment, "")
-                
-            if paragraph.runs:
-                run = paragraph.runs[0]
-                if run.font.name:
-                    style.font_family = run.font.name
-                if run.font.size:
-                    style.font_size = run.font.size.pt
-                if run.font.bold is not None:
-                    style.bold = run.font.bold
-                if run.font.italic is not None:
-                    style.italic = run.font.italic
-                try:
-                    if run.font.color and hasattr(run.font.color, "rgb") and run.font.color.rgb:
+            for run in paragraph.runs:
+                if run.font:
+                    if run.font.name:
+                        style.font_family = run.font.name
+                    if run.font.size:
+                        style.font_size = run.font.size.pt
+                    if run.font.color and run.font.color.type == 1:
                         style.font_color = f"#{str(run.font.color.rgb)}"
-                except Exception as e:
-                    logger.warning(f"Не удалось извлечь цвет шрифта: {e}")
+                    if run.font.bold is not None:
+                        style.bold = run.font.bold
+                    if run.font.italic is not None:
+                        style.italic = run.font.italic
                 break
+            break
     except Exception as e:
-        logger.warning(f"Ошибка при обработке текстовых стилей: {e}")
+        logger.info(f"Ошибка при извлечении стилей текста: {e}")
+    return style
 
 
-def _extract_fill_lines(shape, style: ShapeStyle) -> None:
-    """Извлекает стили заливки и обводки фигуры."""
+def _extract_fill_lines(shape) -> ShapeStyle:
+    """Извлекает цвета заливки и контура шейпа."""
+    style = ShapeStyle()
     try:
-        if hasattr(shape, "fill") and shape.fill.type is not None:
-            style.fill_color = "#" + str(shape.fill.fore_color.rgb)
-    except Exception:
-        pass
-        
-    try:
-        if hasattr(shape, "line") and getattr(shape.line, "fill", None) is not None and shape.line.fill.type is not None:
-            style.line_color = "#" + str(shape.line.color.rgb)
-    except Exception:
-        pass
-
-
-def _extract_table_data(shape) -> list[list[str]] | None:
-    """Извлекает текст из всех ячеек таблицы в виде двумерного массива."""
-    try:
-        return [[cell.text.strip() for cell in row.cells] for row in shape.table.rows]
+        if hasattr(shape, "fill") and shape.fill.type == 1:
+            if hasattr(shape.fill.fore_color, "rgb") and shape.fill.fore_color.rgb:
+                style.fill_color = f"#{str(shape.fill.fore_color.rgb)}"
+        if hasattr(shape, "line") and shape.line.fill.type == 1:
+            if hasattr(shape.line.color, "rgb") and shape.line.color.rgb:
+                style.line_color = f"#{str(shape.line.color.rgb)}"
     except Exception as e:
-        logger.warning(f"Ошибка извлечения данных таблицы: {e}")
-        return None
+        logger.info(f"Ошибка при извлечении заливки/контура: {e}")
+    return style
+
+
+def _extract_table_data(shape) -> list[list[str]]:
+    """Извлекает текстовые данные из ячеек таблицы."""
+    data = []
+    try:
+        if shape.has_table:
+            for row in shape.table.rows:
+                row_data = []
+                for cell in row.cells:
+                    row_data.append(cell.text_frame.text.strip() if cell.text_frame else "")
+                data.append(row_data)
+    except Exception as e:
+        logger.info(f"Ошибка при извлечении данных таблицы: {e}")
+    return data
 
 
 def _parse_slide_shapes(slide) -> list[ParsedShape]:
-    """Извлекает подробные данные всех фигур на слайде."""
-    shapes_data = []
-    img_idx = 0
-    
-    for idx, shape in enumerate(_iter_all_shapes(slide.shapes)):
-        s_type = _map_shape_type(getattr(shape, "shape_type", 0))
-        if s_type == "picture":
-            img_idx += 1
+    """Разбирает все шейпы на слайде в модели ParsedShape."""
+    parsed_shapes = []
+    for shape in _iter_all_shapes(slide.shapes):
+        try:
+            position = _extract_position(shape)
+            shape_type = _map_shape_type(shape)
+            texts = []
+            if shape.has_text_frame:
+                texts = [p.text.strip() for p in shape.text_frame.paragraphs if p.text.strip()]
             
-        texts = []
-        if getattr(shape, "has_text_frame", False):
-            texts = [p.text.strip() for p in shape.text_frame.paragraphs if p.text.strip()]
+            style = _extract_text_styles(shape)
+            fill_line_style = _extract_fill_lines(shape)
+            style.fill_color = fill_line_style.fill_color
+            style.line_color = fill_line_style.line_color
             
-        style = ShapeStyle()
-        _extract_text_styles(shape, style)
-        _extract_fill_lines(shape, style)
-        
-        shapes_data.append(ParsedShape(
-            shape_id=getattr(shape, "shape_id", idx),
-            shape_type=s_type,
-            name=getattr(shape, "name", ""),
-            position=_extract_position(shape),
-            rotation=getattr(shape, "rotation", 0.0) or 0.0,
-            texts=texts,
-            style=style,
-            table_data=_extract_table_data(shape) if s_type == "table" else None,
-            image_index=img_idx if s_type == "picture" else None
-        ))
-        
-    return shapes_data
+            table_data = _extract_table_data(shape) if shape.has_table else None
+            
+            parsed_shape = ParsedShape(
+                shape_id=str(shape.shape_id) if hasattr(shape, "shape_id") else "",
+                shape_type=shape_type,
+                name=shape.name if hasattr(shape, "name") else "",
+                position=position,
+                rotation=shape.rotation if hasattr(shape, "rotation") and shape.rotation else 0.0,
+                texts=texts,
+                style=style,
+                table_data=table_data,
+                image_index=None
+            )
+            parsed_shapes.append(parsed_shape)
+        except Exception as e:
+            logger.info(f"Ошибка при обработке шейпа: {e}")
+            continue
+    return parsed_shapes
 
 
 def parse_pptx_rich(pptx_path: str | Path) -> ParsedPresentation:
-    """Извлекает подробную структуру презентации: позиции, стили, цвета, таблицы."""
+    """Извлекает расширенную структуру презентации со стилями и позициями."""
     path = Path(pptx_path)
-    logger.info(f"Начало rich парсинга: {path.name}")
-    
+    logger.info(f"Начало глубокого парсинга: {path.name}")
+
     try:
         prs = Presentation(str(path))
     except Exception as e:
-        logger.error(f"Не удалось открыть файл {path}: {e}")
-        raise RuntimeError(f"Ошибка чтения PPTX: {e}") from e
+        logger.error(f"Не удалось открыть файл {pptx_path}: {e}")
+        raise ValueError(f"Invalid PPTX file: {e}")
 
     slides_data = []
+    
     for idx, slide in enumerate(prs.slides):
-        bg_color = ""
+        bg_color = None
         try:
             if getattr(slide, "background", None) and getattr(slide.background, "fill", None) and slide.background.fill.type is not None:
                 if hasattr(slide.background.fill.fore_color, "rgb") and slide.background.fill.fore_color.rgb:
@@ -228,7 +183,7 @@ def parse_pptx_rich(pptx_path: str | Path) -> ParsedPresentation:
             shapes=_parse_slide_shapes(slide)
         ))
 
-    logger.info(f"Успешно обработано {len(slides_data)} слайдов")
+    logger.info(f"Успешно обработано {len(slides_data)} слайдов (rich)")
     return ParsedPresentation(filename=path.name, slide_count=len(slides_data), slides=slides_data)
 
 
@@ -241,9 +196,7 @@ if __name__ == "__main__":
         test_result = parse_pptx_rich(test_path)
         for s in test_result.slides:
             logger.info(f"Slide {s.slide_index} | BG: {s.background_color} | Shapes: {len(s.shapes)}")
-            for shp in s.shapes:
-                txt_preview = shp.texts[0] if shp.texts else ""
-                logger.info(f"  [{shp.shape_type}] ID={getattr(shp, 'shape_id', '?')} {shp.name} pos={shp.position} txt='{txt_preview[:30]}'")
-        logger.info("Done!")
-    except Exception as exc:
-        logger.error(f"Сбой выполнения скрипта: {exc}")
+            for sh in s.shapes[:2]:
+                logger.info(f"  - {sh.shape_type}: {sh.name} at {sh.position}")
+    except Exception as e:
+        logger.error(f"Ошибка при тестировании: {e}")
