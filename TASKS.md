@@ -9,118 +9,78 @@
 - Обогащённый парсер parse_pptx_rich()
 - Ollama client (core/ollama_client.py)
 
-### Фаза 4.1: Архитектура v2
-- [x] agents/classifier.py — SlideClassificationV2, батч до 20, system_instruction
-- [x] agents/senior_designer.py — LayoutPlan, батч до 10, system_instruction
-- [x] agents/junior_designer.py — SVG по LayoutPlan, async до 5 параллельно
-- [x] core/orchestrator.py — полный пайплайн с кэшем, батчами, async
-- [x] core/llm_client.py — system_instruction + call_llm_async + semaphore
-- [x] core/prompt_assembler.py — модульная сборка промптов
-- [x] core/llm_normalize.py — нормализация ответов AI
-- [x] core/grid_calculator.py — создан, НЕ подключён (отложен для LayoutEngine)
-- [x] models/contracts.py — все контракты v2
-- [x] prompts/senior_designer.md — промпт Senior
-- [x] prompts/junior_designer.md — промпт Junior v2
+### Фаза 4.1-4.2: Архитектура v2 + Дизайн-система
+- agents v2 (classifier, senior, junior) + system_instruction
+- orchestrator v2 с кэшем, батчами, async
+- llm_client (sync + async), prompt_assembler, llm_normalize
+- contracts v2, промпты v2
+- config/: core_rules, classifier, card, patterns, modules_map, handoff, headers/, styles/
 
-### Фаза 4.2: Дизайн-система (конфиги)
-- [x] config/core_rules.md — 12-колоночная сетка, 6 объектов
-- [x] config/classifier.md — схема классификации
-- [x] config/card.md — правила карточек
-- [x] config/patterns.md — визуальные паттерны
-- [x] config/modules_map.md — карта загрузки модулей
-- [x] config/handoff.md — передача данных между агентами
-- [x] config/headers/ — type_a, type_b, type_c
-- [x] config/styles/ — strict.md, soft.md
+### Фаза 4.3: Чистка кода v1
+- Удалены агенты v1: brain.py, designer.py, vision_classifier.py
+- Удалены промпты v1, отчищен contracts.py
 
-### Фаза 4.3: Чистка кода (МАЙ 2026)
-- [x] Удалены агенты v1: agents/brain.py, agents/designer.py, agents/vision_classifier.py
-- [x] Удалены промпты v1: prompts/brain_level1.md, brain_level2.md, designer.md, vision_classifier.md
-- [x] Отчищен models/contracts.py — удалены SlideInfo, PresentationStructure, SlideClassification, PresentationStrategy (v1), SlideBrief, ElementInfo, SlideGroup, ColorPalette, SlideClassificationFinal, BlockInstruction, DesignInstruction
-- [x] Удалена устаревшая parse_pptx() из parsers/pptx_parser.py
-- [x] Удалён дублирующий импорт calc_layout_geometry из agents/junior_designer.py
-- [x] Удалён неиспользуемый импорт design_slide_junior из core/orchestrator.py
-- [x] DesignedSlide.generation_time_ms — добавлен default=0
+### Фаза 4.4: Strategy Director
+- agents/strategy_director.py + prompts/strategy_director.md
+- PresentationStrategy (header_type, style_mode, accent_color, presentation_mode, allow_rewrite)
+- Мульти-изображения в call_llm, CLI --accent
 
-### Фаза 4.4: Strategy Director (МАЙ 2026)
-- [x] models/contracts.py — добавлен PresentationStrategy (header_type, style_mode, accent_color, presentation_mode, allow_rewrite)
-- [x] prompts/strategy_director.md — промпт с критериями выбора всех 5 полей
-- [x] agents/strategy_director.py — агент build_strategy(images, parsed)
-- [x] core/llm_client.py — call_llm теперь принимает image_path: str | list (мульти-изображения)
-- [x] core/orchestrator.py — Strategy встроен как Шаг 3, кэшируется отдельно (strategy.json)
-- [x] header_type: "fixed" → "A", "floating" → "B" (маппинг в orchestrator)
-- [x] CLI: --accent=#XXXXXX перебивает strategy.accent_color
+### Фаза 4.5: Архитектура v4 — Architect (МАЙ 2026)
+- [x] Решение: объединить Classifier + Senior + Junior → Architect + LayoutEngine + SVG Renderer
+- [x] models/contracts.py v4 — убрана SlideClassificationV2, добавлены BlockGeometry, SlideGeometry, slide_role в LayoutPlan
+- [x] agents/architect.py — один агент вместо трёх (flash вместо pro)
+- [x] prompts/architect.md — единый промпт (classify + layout в одном шаге)
+- [x] core/prompt_assembler.py — assemble_rules(strategy) вместо assemble_prompt(classification)
+- [x] Быстрые фиксы: config.py 404 модели, Senior карточки 6+6, subtitle rule, allow_rewrite
+- [x] Чистка: удалены classifier.py, senior_designer.py, junior_designer.py, grid_calculator.py
+- [x] Чистка: удалены prompts/classifier.md, senior_designer.md, junior_designer.md
 
 ---
 
-## 🔧 Нужно пофиксить (ПРИОРИТЕТ 1)
+## 📋 ФАЗА 4.6: LayoutEngine + SVG Renderer + Orchestrator v4
+Цель: полный рабочий пайплайн без Junior Designer.
 
-### Качество SVG
-- [ ] Junior не центрирует контент вертикально — огромные пустоты внизу
-- [ ] Senior кладёт несколько карточек в 1 колонку grid_span=12 вместо 6+6
-- [ ] Senior создаёт отдельный text-ряд для короткого подзаголовка (должен быть subtitle)
-- [ ] Junior получает LayoutPlan дважды — плейсхолдер {layout_plan} в системном промпте остаётся как литеральная строка (баг в _build_system_prompt)
-- [ ] Промпт Junior перегружен (~5000 символов) — разбить на модули как у Senior через assembler
+### LayoutEngine
+- [ ] core/layout_engine.py — compute_geometry(layout_plan, strategy) → SlideGeometry
+- [ ] Эвристика высот: heading=70, text по строкам, card=равная высота
+- [ ] Вертикальное центрирование в рабочей зоне (header_type A/B)
+- [ ] Расчёт x/y/w/h для каждого блока
 
-### Семантика
-- [ ] Senior НЕ использует strategy.allow_rewrite — должен перефразировать тексты если true
-- [ ] Strategy.accent_color часто = дефолтный #0066CC, плохо извлекает реальный цвет
-- [ ] Classifier не оценивает существующие visuals (нет поля visual_assessment: keep/regenerate/remove)
-- [ ] Classifier не возвращает семантические groups[] (Senior получает плоский objects[])
+### SVG Renderer
+- [ ] core/svg_renderer.py — render_slide(slide_geometry) → SVG строка
+- [ ] Шаблоны: heading, text, card, table, placeholder (chart/visual)
+- [ ] Text wrapping (Python, не LLM)
+- [ ] Style modes: soft (rx=12) / strict (rx=0)
 
-### Конфиг
-- [ ] config.py: MODEL_INSPECTOR указывает на gemini-3.1-flash-lite-preview (404)
-- [ ] config.py: MODEL_CHEAP указывает на gemini-3.1-flash-lite-preview (404)
+### Orchestrator v4
+- [ ] core/orchestrator.py — переписать: Parser → Strategy → Architect → LayoutEngine → SVG Renderer
+- [ ] Кэш: strategy.json, layout_plan, svg
+- [ ] CLI: --no-cache, --no-vision, --no-batch, --slides, --accent
 
----
-
-## 📋 ФАЗА 4.5: LayoutEngine (Python геометрия)
-Цель: убрать вычисление координат из LLM в Python. Решает проблему #1 (вертикальные пустоты).
-
-- [ ] core/layout_engine.py — функция compute_geometry(layout_plan, strategy) → LayoutGeometry
-- [ ] Эвристика высот блоков по содержимому (heading=70, text по строкам, card одинаковая высота)
-- [ ] Вертикальное центрирование композиции в рабочей зоне (с учётом header_type A/B/C)
-- [ ] Расчёт x/y/w для каждой колонки в каждом ряду
-- [ ] Junior получает готовую LayoutGeometry, не считает координаты сам
-- [ ] Сократить промпт Junior (убрать секцию POSITIONING RULES)
-- [ ] Опционально: Pillow + TTF-шрифты для точных text metrics
+### Тест
+- [ ] Прогон на 1 слайде (--slides=0)
+- [ ] Сравнение: качество vs старый пайплайн
 
 ---
 
-## 📋 ФАЗА 4.6: Senior v2 — семантика
-- [ ] prompts/senior_designer.md — добавить блок про allow_rewrite (можно перефразировать, сократить, объединить)
-- [ ] agents/senior_designer.py — передавать strategy в design_slide_senior / design_batch_senior
-- [ ] Запретить grid_span=12 для нескольких однотипных карточек (примеры в промпте: 2 карточки → 6+6, 3 → 4+4+4)
-- [ ] Различать short text как subtitle vs отдельный text-ряд
-
----
-
-## 📋 ФАЗА 4.7: Classifier v3
-- [ ] models/contracts.py — добавить SlideGroup (group_id, role, elements, position) и visual_assessment
-- [ ] SlideClassificationV2 → SlideClassificationV3 с полями groups[] и visual_assessment[]
-- [ ] prompts/classifier.md — добавить инструкции по группировке и оценке visuals (keep/regenerate/remove)
-- [ ] header_type и style_mode убрать из Classifier (приходят из Strategy)
-
----
-
-## 📋 ФАЗА 4.8: Валидатор + Inspector
+## 📋 ФАЗА 5: Валидатор + Inspector
 - [ ] postprocess/validator.py — XML валидность, bounds, overlap, text overflow
-- [ ] agents/inspector.py — AI визуальная проверка → возврат к Senior (макс 2 итерации)
+- [ ] agents/inspector.py — AI визуальная проверка → цикл (макс 2 итерации)
 - [ ] prompts/inspector.md
 
 ---
 
-## 📋 ФАЗА 5: Реверс-модули
-- [ ] Подключить map_pipeline к оркестратору (когда Classifier научится оценивать карты)
+## 📋 ФАЗА 6: Реверс-модули
+- [ ] Подключить map_pipeline к оркестратору
 - [ ] reverse/chart_reverse.py (bar, pie, line)
 - [ ] reverse/flowchart_reverse.py (Graphviz)
-- [ ] reverse/image_generator.py (Nano Banana 2)
+- [ ] reverse/image_generator.py
 
 ---
 
-## 📋 ФАЗА 6: Оптимизация и тесты
-- [ ] Эксперимент: заменить MODEL_BRAIN (Senior) с pro на flash — потенциальная экономия 5-10x
-- [ ] Кэш presentation_strategy между запусками одной презы
-- [ ] Сжимать картинки для Strategy до 512×288 px (экономия токенов в 5 раз)
+## 📋 ФАЗА 7: Оптимизация и тесты
+- [ ] Кэш strategy между запусками одной презы
+- [ ] Сжимать картинки для Strategy до 512×288 px
 - [ ] Прогон SmartGas, Welcome, AI UDP
 - [ ] pytest, метрики качества
 - [ ] Цель: 80% успешных слайдов
@@ -135,32 +95,21 @@
 ---
 
 ## 📝 Решения принятые
-- Локальные модели (Ollama) ненадёжны — используем Gemini, но Ollama оставлен на будущее для простых задач
-- Vision: простая роль, группировку делает Classifier
-- Фильтрация мелких шейпов перед Classifier (w>100 или h>50)
-- Дизайн-система: 12 колонок, Senior мыслит в колонках
-- grid_calculator отложен — будем строить полноценный LayoutEngine (ФАЗА 4.5)
-- header_type на уровне презентации (из Strategy), не per-slide
-- 2 типа заголовков: fixed (прибит сверху) / floating (плавает с контентом)
-- 2 стиля: strict, soft
-- 4 режима презентаций: formal, technical, sales, report
-- 6 типов объектов: heading, text, card, table, chart, visual
-- Промпты модульные: core_rules + style + header + card/patterns
-- system_instruction для всех агентов — rules отдельно от данных
-- Strategy Director — 1 вызов flash на всю презу (~$0.002), даёт единый стиль
-- Strategy кэшируется отдельно (temp/cache/strategy.json)
-- Classifier: батч до 20 слайдов (без vision) или поштучно (с vision)
-- Senior: батч до 10 слайдов
-- Junior: async параллельно до 5 слайдов
-- Кэш между агентами: temp/cache/ (strategy, classification, layout_plan, svg)
-- Orchestrator поддерживает: --no-cache, --no-vision, --no-batch, --slides=0,1,2, --accent=#XXXXXX
-- Junior-программист (Continue + Gemini Ctrl+I) больше НЕ используется — Tech Lead пишет код целиком, Operator копирует
-- Тесты только на 1 слайде (--slides=0), полная прога только когда стабильно
+- Architect = Classifier + Senior (1 шаг вместо 2, flash вместо pro)
+- Junior УДАЛЁН — Python LayoutEngine + SVG Renderer
+- LLM мыслит в grid-колонках, Python считает пиксели
+- Strategy Director — 1 вызов flash на всю презу (~$0.002)
+- Architect: поштучно с vision / батч до 10 без vision
+- Дизайн-система: 12 колонок, 6 типов объектов
+- Промпты модульные: core_rules + style + header + card + patterns
+- system_instruction для всех агентов
+- header_type на уровне презентации (из Strategy)
+- Кэш: temp/cache/ (strategy, layout_plan, svg)
+- Orchestrator CLI: --no-cache, --no-vision, --no-batch, --slides, --accent
+- Тесты только на 1 слайде, потом расширяем
 
-## ⚡ Оптимизации сделанные
-- system_instruction — rules грузятся 1 раз, не в каждый промпт
-- Батчинг Classifier + Senior — меньше API вызовов
-- Async Junior — 5 слайдов параллельно
-- Кэш — повторный запуск не тратит токены
-- Strategy Director — 1 вызов на всю презу вместо per-slide решений
-- Мульти-изображения в одном запросе для Strategy (5-20 картинок за вызов)
+## ⚡ Экономия от v4
+- Убран Junior (pro модель) → экономия ~70% токенов на слайд
+- Classifier + Senior (2 вызова) → Architect (1 вызов flash) → экономия ~80%
+- 5 слайдов: было 11 API вызовов → стало 6
+- 100 слайдов: было 201 вызов → стало ~11 (батч)

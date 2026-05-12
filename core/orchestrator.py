@@ -220,24 +220,28 @@ def run_pipeline(
             uncached_cls.append(classifications[i])
             uncached_parsed_sr.append(sel_parsed[i])
 
-    if uncached_sr_indices:
-        logger.info(f"Senior Designer для {len(uncached_sr_indices)} слайдов")
+        if uncached_sr_indices:
+            logger.info(f"Senior Designer для {len(uncached_sr_indices)} слайдов")
 
-        if use_batch and len(uncached_cls) > 1:
-            batch_results = design_batch_senior(
-                uncached_cls, uncached_parsed_sr, strategy.accent_color
-            )
-            for j, result in enumerate(batch_results):
-                real_idx = indices[uncached_sr_indices[j]]
-                result.slide_index = real_idx
-                layout_plans[uncached_sr_indices[j]] = result
-                _save_cache(real_idx, "layout_plan", result)
-        else:
-            for j, (cls, parsed) in enumerate(zip(uncached_cls, uncached_parsed_sr)):
-                result = design_slide_senior(cls, parsed, strategy.accent_color)
-                layout_plans[uncached_sr_indices[j]] = result
-                real_idx = indices[uncached_sr_indices[j]]
-                _save_cache(real_idx, "layout_plan", result)
+            if use_batch and len(uncached_cls) > 1:
+                batch_results = design_batch_senior(
+                    uncached_cls, uncached_parsed_sr, strategy.accent_color,
+                    allow_rewrite=strategy.allow_rewrite
+                )
+                for j, result in enumerate(batch_results):
+                    real_idx = indices[uncached_sr_indices[j]]
+                    result.slide_index = real_idx
+                    layout_plans[uncached_sr_indices[j]] = result
+                    _save_cache(real_idx, "layout_plan", result)
+            else:
+                for j, (cls, parsed) in enumerate(zip(uncached_cls, uncached_parsed_sr)):
+                    result = design_slide_senior(
+                        cls, parsed, strategy.accent_color,
+                        allow_rewrite=strategy.allow_rewrite
+                    )
+                    layout_plans[uncached_sr_indices[j]] = result
+                    real_idx = indices[uncached_sr_indices[j]]
+                    _save_cache(real_idx, "layout_plan", result)
 
     sr_time = time.time() - start_time - strategy_time - cls_time
     logger.info(f"Senior Designer завершён за {sr_time:.1f}с")

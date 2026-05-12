@@ -7,6 +7,8 @@ from pydantic import BaseModel, Field
 logger = logging.getLogger(__name__)
 
 
+# === ПАРСЕР ===
+
 class GroupPosition(BaseModel):
     """Позиция объекта на слайде в пикселях."""
     x: float
@@ -56,37 +58,27 @@ class ParsedPresentation(BaseModel):
     slides: list[ParsedSlide] = Field(default_factory=list)
 
 
-class ClientConstraints(BaseModel):
-    """Ограничения клиента."""
-    verbatim_text: bool = False
-    preserve_template: bool = False
-    allow_slide_split: bool = False
-    allow_content_removal: bool = False
+# === STRATEGY ===
+
+class PresentationStrategy(BaseModel):
+    """Стратегия редизайна — формируется один раз Strategy Director."""
+    header_type: str = Field(default="floating", description="fixed / floating")
+    style_mode: str = Field(default="soft", description="strict / soft")
+    accent_color: str = Field(default="#0066CC", description="Акцентный цвет hex")
+    presentation_mode: str = Field(default="formal", description="formal / technical / sales / report")
+    allow_rewrite: bool = Field(default=False, description="Можно ли перефразировать тексты")
 
 
-class SlideClassificationV2(BaseModel):
-    """Выход Classifier (v2)."""
-    slide_index: int
-    slide_role: str
-    objects: list[str] = Field(default_factory=list)
-    visual_subtype: Optional[str] = None
-    pattern_hint: Optional[str] = None
-    header_type: str = "B"
-    needs_footer: bool = False
-    style_mode: str = "soft"
-    series_context: Optional[str] = None
-    overload: bool = False
-    client_constraints: Optional[ClientConstraints] = None
-
+# === ARCHITECT (бывший Classifier + Senior) ===
 
 class ColumnInstruction(BaseModel):
     """Одна колонка в ряду layout-плана."""
     col_id: str = Field(description="c0, c1, c2...")
     grid_span: int = Field(description="Кол-во колонок сетки из 12")
     object_type: str = Field(description="heading, text, card, table, chart, visual")
-    visual_subtype: Optional[str] = Field(default=None, description="photo, map, custom_infographic, flowchart, pattern")
+    visual_subtype: Optional[str] = Field(default=None, description="photo, map, flowchart, pattern, custom_infographic")
     content: dict = Field(default_factory=dict, description="Контент объекта")
-    render: str = Field(default="ai", description="ai или external")
+    render: str = Field(default="ai", description="ai / external")
 
 
 class RowInstruction(BaseModel):
@@ -102,28 +94,48 @@ class FooterInstruction(BaseModel):
 
 
 class LayoutPlan(BaseModel):
-    """Выход Senior Designer v2 — layout-план в терминах сетки."""
+    """Выход Architect — полный план слайда (классификация + layout)."""
     slide_index: int
-    header_type: str = Field(default="B", description="A, B, C, none")
-    style_mode: str = Field(default="soft", description="strict, soft")
+    slide_role: str = Field(default="content", description="title / section / content / closing / blank")
+    header_type: str = Field(default="B", description="A / B / C / none")
+    style_mode: str = Field(default="soft", description="strict / soft")
     needs_footer: bool = False
-    composition_schema: str = ""
+    composition_schema: str = Field(default="A", description="A / B / C / D")
     rows: list[RowInstruction] = Field(default_factory=list)
     footer: Optional[FooterInstruction] = None
     design_notes: str = ""
 
 
+# === LAYOUT ENGINE ===
+
+class BlockGeometry(BaseModel):
+    """Точные пиксельные координаты одного блока после LayoutEngine."""
+    col_id: str
+    x: float
+    y: float
+    w: float
+    h: float
+    object_type: str
+    content: dict = Field(default_factory=dict)
+    render: str = "ai"
+    visual_subtype: Optional[str] = None
+
+
+class SlideGeometry(BaseModel):
+    """Полная геометрия одного слайда — выход LayoutEngine."""
+    slide_index: int
+    slide_role: str = "content"
+    header_type: str = "B"
+    style_mode: str = "soft"
+    accent_color: str = "#0066CC"
+    blocks: list[BlockGeometry] = Field(default_factory=list)
+    footer: Optional[FooterInstruction] = None
+
+
+# === SVG RENDERER ===
+
 class DesignedSlide(BaseModel):
-    """Выход Junior — готовый SVG код слайда."""
+    """Выход SVG Renderer — готовый SVG код слайда."""
     slide_index: int
     svg_code: str
     generation_time_ms: int = 0
-
-
-class PresentationStrategy(BaseModel):
-    """Стратегия редизайна на уровне всей презентации — формируется один раз Strategy Director."""
-    header_type: str = Field(default="floating", description="fixed=прибит к верху, floating=плавает с контентом")
-    style_mode: str = Field(default="soft", description="strict, soft")
-    accent_color: str = Field(default="#0066CC", description="Акцентный цвет в hex")
-    presentation_mode: str = Field(default="formal", description="formal=бизнес/госсектор, technical=финансы/графики, sales=минимум сложности и больше воздуха, report=доклад с крупным шрифтом")
-    allow_rewrite: bool = Field(default=False, description="Можно ли Senior Designer перефразировать тексты")
