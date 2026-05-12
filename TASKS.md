@@ -35,31 +35,41 @@
 - [x] Чистка: удалены classifier.py, senior_designer.py, junior_designer.py, grid_calculator.py
 - [x] Чистка: удалены prompts/classifier.md, senior_designer.md, junior_designer.md
 
+### Фаза 4.6: LayoutEngine + SVG Renderer + Orchestrator v4 (МАЙ 2026)
+- [x] core/layout_engine.py — compute_geometry(layout_plan, strategy) → SlideGeometry
+- [x] Эвристика высот: heading=70/90, text по строкам, card=равная высота в ряду
+- [x] Вертикальное центрирование в рабочей зоне (header_type B — центр, A — сверху)
+- [x] Расчёт x/y/w/h для каждого блока из grid_span
+- [x] core/svg_renderer.py — render_slide(slide_geometry) → DesignedSlide
+- [x] Рендереры: heading, text, card, table, placeholder (chart/visual)
+- [x] Text wrapping (Python word-wrap)
+- [x] Style modes: soft (rx=12) / strict (rx=0)
+- [x] core/orchestrator.py v4 — Parser → Strategy → Architect → LayoutEngine → SVG Renderer
+- [x] Кэш: strategy.json, layout_plan, geometry, svg
+- [x] CLI: --no-cache, --no-vision, --no-batch, --slides, --accent
+
 ---
 
-## 📋 ФАЗА 4.6: LayoutEngine + SVG Renderer + Orchestrator v4
-Цель: полный рабочий пайплайн без Junior Designer.
+## 📋 ФАЗА 4.7: Качество SVG + Тестирование
+Цель: довести SVG-рендеринг до приемлемого качества на реальных презентациях.
 
-### LayoutEngine
-- [ ] core/layout_engine.py — compute_geometry(layout_plan, strategy) → SlideGeometry
-- [ ] Эвристика высот: heading=70, text по строкам, card=равная высота
-- [ ] Вертикальное центрирование в рабочей зоне (header_type A/B)
-- [ ] Расчёт x/y/w/h для каждого блока
+### Улучшения SVG Renderer
+- [ ] Улучшить word-wrap (учитывать ширину символов точнее)
+- [ ] Карточки: иконки SVG вместо кружков-заглушек
+- [ ] Таблицы: обрезка длинного текста, авто-ширина колонок
+- [ ] Heading: варианты оформления по slide_role (title, section, closing)
+- [ ] Header Type A: рендер фиксированного хедера из шаблона
 
-### SVG Renderer
-- [ ] core/svg_renderer.py — render_slide(slide_geometry) → SVG строка
-- [ ] Шаблоны: heading, text, card, table, placeholder (chart/visual)
-- [ ] Text wrapping (Python, не LLM)
-- [ ] Style modes: soft (rx=12) / strict (rx=0)
+### Улучшения LayoutEngine
+- [ ] Точнее считать высоту text-блоков (учитывать реальную ширину символов)
+- [ ] Обработка переполнения: если фрейм > рабочей зоны → сжать / предупредить
+- [ ] Поддержка composition_schema B, C, D (сейчас все идут как вертикальный стек)
 
-### Orchestrator v4
-- [ ] core/orchestrator.py — переписать: Parser → Strategy → Architect → LayoutEngine → SVG Renderer
-- [ ] Кэш: strategy.json, layout_plan, svg
-- [ ] CLI: --no-cache, --no-vision, --no-batch, --slides, --accent
-
-### Тест
-- [ ] Прогон на 1 слайде (--slides=0)
-- [ ] Сравнение: качество vs старый пайплайн
+### Тестирование
+- [ ] Прогон на 1 слайде (--slides=0) с реальной презентацией
+- [ ] Прогон на 3-5 слайдах, сравнение качества
+- [ ] Визуальная проверка SVG в браузере
+- [ ] Сквозной тест: PPTX → SVG → PPTX через SVG Engine
 
 ---
 
@@ -88,9 +98,10 @@
 ---
 
 ## 🐛 Баги
-- [ ] SVG word-wrap не всегда работает
+- [ ] SVG word-wrap не всегда точный (грубая эвристика ширины символов)
 - [ ] Постпроцессор скругляет ВСЕ Rectangle (нужно по style_mode)
 - [ ] map_pipeline шаги 4-5 заглушки
+- [ ] Иконки в карточках — заглушки (кружок с буквой), нужны реальные SVG-иконки
 
 ---
 
@@ -104,12 +115,14 @@
 - Промпты модульные: core_rules + style + header + card + patterns
 - system_instruction для всех агентов
 - header_type на уровне презентации (из Strategy)
-- Кэш: temp/cache/ (strategy, layout_plan, svg)
+- Кэш: temp/cache/ (strategy, layout_plan, geometry, svg)
 - Orchestrator CLI: --no-cache, --no-vision, --no-batch, --slides, --accent
 - Тесты только на 1 слайде, потом расширяем
+- SVG Renderer: чистый Python, без LLM-вызовов, 0мс на слайд
 
 ## ⚡ Экономия от v4
 - Убран Junior (pro модель) → экономия ~70% токенов на слайд
 - Classifier + Senior (2 вызова) → Architect (1 вызов flash) → экономия ~80%
+- LayoutEngine + SVG Renderer = Python (0 токенов, 0 стоимости)
 - 5 слайдов: было 11 API вызовов → стало 6
 - 100 слайдов: было 201 вызов → стало ~11 (батч)
