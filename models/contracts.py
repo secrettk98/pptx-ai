@@ -108,6 +108,19 @@ class LayoutPlan(BaseModel):
 
 # === LAYOUT ENGINE ===
 
+class RenderedText(BaseModel):
+    """Готовый к отрисовке текстовый фрагмент после wrap."""
+    role: str = Field(description="title / subtitle / body / bullet / card_title / card_body / cell_header / cell_body")
+    lines: list[str] = Field(default_factory=list, description="Строки после word-wrap")
+    size_pt: float = 12.0
+    bold: bool = False
+    x: float = 0.0
+    y: float = 0.0
+    w: float = 0.0
+    h: float = 0.0
+    extra: dict = Field(default_factory=dict, description="Доп. данные: row_index/col_index для таблиц, card_index для карточек и т.п.")
+
+
 class BlockGeometry(BaseModel):
     """Точные пиксельные координаты одного блока после LayoutEngine."""
     col_id: str
@@ -119,6 +132,7 @@ class BlockGeometry(BaseModel):
     content: dict = Field(default_factory=dict)
     render: str = "ai"
     visual_subtype: Optional[str] = None
+    rendered_texts: list[RenderedText] = Field(default_factory=list, description="Готовые тексты после wrap (опционально, SVG может использовать или игнорировать)")
 
 
 class SlideGeometry(BaseModel):
