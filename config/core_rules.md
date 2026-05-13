@@ -71,27 +71,27 @@ position, with metadata as XML comment listing what the module needs
 - Grid: 12 columns
 - Horizontal margins (left/right): 43px
 - Vertical margins (top/bottom): 20px
-- Column width: 76px
-- Gutter between columns: 26px
-- Gutter between rows (between blocks): 26px
+- Column width: 72px
+- Gutter between columns: 30px
+- Gutter between rows: 30px
 - Working area: 1194 × 680 px
 
-Standard block widths:
+Standard block widths (formula: span × 72 + (span − 1) × 30):
 
 | Columns | Width | Usage |
 |---------|-------|-------|
 | 12 | 1194 | full-width content |
-| 8  | 790  | dominant block |
-| 7  | 688  | primary side in 7+5 split |
+| 8  | 786  | dominant block |
+| 7  | 684  | primary side in 7+5 split |
 | 6  | 582  | symmetric 6+6 split |
 | 5  | 480  | secondary side in 7+5 split |
-| 4  | 382  | side block next to 8-col dominant |
-| 3  | 280  | quarter card / metric |
+| 4  | 378  | side block next to 8-col dominant |
+| 3  | 276  | quarter card / metric |
 
 Block sizing:
 - Width = fill assigned columns.
 - Height = hug contents.
-- Vertical gap between blocks = 26px. Internal gaps inside a block may differ.
+- Vertical gap between blocks = 30px. Internal gaps inside a block may differ.
 
 ## 4. Default Spatial Logic
 

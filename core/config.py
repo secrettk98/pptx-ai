@@ -39,7 +39,13 @@ LLM_MAX_RETRIES: int = 3
 # Design System
 SLIDE_WIDTH: int = 1280
 SLIDE_HEIGHT: int = 720
-SLIDE_MARGIN: int = 47
+SLIDE_MARGIN_X: int = 43       # горизонтальный отступ (лево/право)
+SLIDE_MARGIN_Y: int = 20       # вертикальный отступ (верх/низ)
+WORKING_AREA_W: int = 1194     # 1280 - 2*43
+WORKING_AREA_H: int = 680      # 720 - 2*20
+GRID_COLUMNS: int = 12
+COLUMN_WIDTH: int = 72         # (1194 - 11*30) / 12
+GUTTER: int = 30               # между колонками и между рядами
 COLOR_ACCENT_DEFAULT: str = "#0066CC"
 FONT_FAMILY: str = "Google Sans"
 
