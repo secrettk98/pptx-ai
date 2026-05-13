@@ -38,7 +38,7 @@ from models.contracts import (
     PresentationStrategy,
     FooterInstruction,
 )
-from core.text_metrics import measure_block, line_height
+from core.text_metrics import measure_block, line_height, baseline_offset
 
 logger = logging.getLogger(__name__)
 
@@ -95,7 +95,9 @@ class BlockCtx:
     col: ColumnInstruction
     # Информация для рендеринга текстов внутри блока
     text_specs: list[dict] = field(default_factory=list)
-    # text_specs хранят: {"role", "text", "size_pt", "bold", "rel_x", "rel_y", "max_w"}
+    # text_specs хранят: {"role", "text", "size_pt", "bold", "_node"}
+    # wrapper_nodes хранят: {"kind": "card"|"cell", "index": int, "node": Node, "col"?: int}
+    wrapper_nodes: list[dict] = field(default_factory=list)
 
 
 # ════════════════════════════════════════════════════════════
@@ -163,9 +165,16 @@ def _build_heading(col: ColumnInstruction) -> BlockCtx:
             "_node": sub_node,
         })
 
-    # Заглушка под акцентную линию (она нарисуется в SVG, но место не резервируем —
-    # она помещается в padding-снизу карточки на этапе рендеринга)
+    # Узел-заглушка под акцентную линию (3px высота, место резервируется в layout)
+    line_node = Node(size=(60, 3))
+    container.add(line_node)
+    text_specs.append({
+        "role": "accent_line", "text": "", "size_pt": 0, "bold": False,
+        "_node": line_node,
+    })
+
     return BlockCtx(node=container, col=col, text_specs=text_specs)
+
 
 
 def _build_text(col: ColumnInstruction) -> BlockCtx:
@@ -337,12 +346,15 @@ def _build_card(col: ColumnInstruction) -> BlockCtx:
         )
         return BlockCtx(node=container, col=col, text_specs=[])
 
+    wrapper_nodes: list[dict] = []
     for i, card in enumerate(cards):
         card_node, specs = _build_card_inner(card, card_index=i)
         container.add(card_node)
         text_specs.extend(specs)
+        wrapper_nodes.append({"kind": "card", "index": i, "node": card_node})
 
-    return BlockCtx(node=container, col=col, text_specs=text_specs)
+
+    return BlockCtx(node=container, col=col, text_specs=text_specs, wrapper_nodes=wrapper_nodes)
 
 
 # ════════════════════════════════════════════════════════════
@@ -387,6 +399,7 @@ def _build_table(col: ColumnInstruction) -> BlockCtx:
     def build_row(cells: list[str], is_header: bool, row_idx: int) -> Node:
         size_pt = PT_TBL_HEAD if is_header else PT_TBL_BODY
         bold = is_header
+        cell_nodes: list[dict] = []
         row_node = Node(
             flex_direction=FlexDirection.ROW,
             align_items=AlignItems.STRETCH,
@@ -408,14 +421,20 @@ def _build_table(col: ColumnInstruction) -> BlockCtx:
                     "extra": {"row": row_idx, "col": j, "is_header": is_header},
                 })
             row_node.add(cell)
-        return row_node
+            cell_nodes.append({"kind": "cell", "row": row_idx, "col": j, "node": cell})
+        return row_node, cell_nodes
 
+    wrapper_nodes: list[dict] = []
     if headers:
-        container.add(build_row(headers, is_header=True, row_idx=-1))
+        rn, cn = build_row(headers, is_header=True, row_idx=-1)
+        container.add(rn)
+        wrapper_nodes.extend(cn)
     for i, r in enumerate(norm_rows):
-        container.add(build_row(r, is_header=False, row_idx=i))
+        rn, cn = build_row(r, is_header=False, row_idx=i)
+        container.add(rn)
+        wrapper_nodes.extend(cn)
 
-    return BlockCtx(node=container, col=col, text_specs=text_specs)
+    return BlockCtx(node=container, col=col, text_specs=text_specs, wrapper_nodes=wrapper_nodes)
 
 
 # Карточки и таблицы добавим в Шаге 3.3
@@ -576,6 +595,41 @@ def _collect_rendered_texts(ctx: BlockCtx, block_abs: tuple[float, float, float,
             h=round(ah, 1),
             extra=spec.get("extra", {}),
         ))
+            # ── Проставляем координаты обёрток (card/cell) в extra ─────
+    if ctx.wrapper_nodes:
+        # Собираем абсолютные координаты обёрток
+        wrappers: dict[str, tuple[float, float, float, float]] = {}
+        for wn in ctx.wrapper_nodes:
+            key = f"{wn['kind']}_{wn.get('index', '')}_{wn.get('row', '')}_{wn.get('col', '')}"
+            wrappers[key] = _abs_box(wn["node"])
+
+        for rt in out:
+            if rt.role.startswith("card_"):
+                ci = rt.extra.get("card_index")
+                if ci is not None:
+                    key = f"card_{ci}__"
+                    if key in wrappers:
+                        wx, wy, ww, wh = wrappers[key]
+                        rt.extra["card_x"] = round(wx, 1)
+                        rt.extra["card_y"] = round(wy, 1)
+                        rt.extra["card_w"] = round(ww, 1)
+                        rt.extra["card_h"] = round(wh, 1)
+            elif rt.role in ("cell_header", "cell_body"):
+                row = rt.extra.get("row")
+                col = rt.extra.get("col")
+                if row is not None and col is not None:
+                    key = f"cell__{row}_{col}"
+                    if key in wrappers:
+                        wx, wy, ww, wh = wrappers[key]
+                        rt.extra["cell_x"] = round(wx, 1)
+                        rt.extra["cell_y"] = round(wy, 1)
+                        rt.extra["cell_w"] = round(ww, 1)
+                        rt.extra["cell_h"] = round(wh, 1)
+                        # Центрируем текст вертикально внутри ячейки
+                        text_h = len(rt.lines) * line_height(rt.size_pt)
+                        if wh > text_h:
+                            rt.y = round(wy + (wh - text_h) / 2, 1)
+
     return out
 
 
@@ -684,7 +738,8 @@ if __name__ == "__main__":
             for rt in b.rendered_texts:
                 first = rt.lines[0] if rt.lines else ""
                 print(f"      {rt.role}: '{first[:40]}' ({len(rt.lines)} стр.) "
-                      f"at ({rt.x},{rt.y}) w={rt.w}")
+                      f"at ({rt.x},{rt.y}) w={rt.w} extra={rt.extra}")
+
 
     show("Тест 1: heading + text/bullets", plan)
 

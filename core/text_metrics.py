@@ -77,6 +77,17 @@ def line_height(size_pt: float = 12, factor: float = LINE_HEIGHT_FACTOR) -> floa
     """Высота одной строки в пикселях."""
     return size_pt * PT_TO_PX * factor
 
+def baseline_offset(size_pt: float = 12, bold: bool = False) -> float:
+    """Смещение baseline от верхнего края строки в пикселях.
+    
+    Pillow font.getmetrics() → (ascent, descent).
+    ascent — расстояние от baseline до верха глифов.
+    Это и есть наш offset: рисуем текст на y + ascent.
+    """
+    f = _font("bold" if bold else "regular", size_pt)
+    ascent, _ = f.getmetrics()
+    return float(ascent)
+
 
 # ── Word-wrap ────────────────────────────────────────────────
 
