@@ -407,7 +407,7 @@ def render_slide(geometry: SlideGeometry) -> DesignedSlide:
             fn = _draw_placeholder
 
         if fn:
-            svg.append(f"<!-- {bl.col_id}: {bl.object_type} -->")
+            svg.append(f"<!-- {bl.block_id}: {bl.object_type} -->")
             svg.append(fn(bl, acc, st))
             svg.append("")
         else:

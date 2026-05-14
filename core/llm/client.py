@@ -10,7 +10,7 @@ from google import genai
 from google.genai import types
 
 from core.config import LLM_MAX_RETRIES
-from core.ollama_client import call_ollama
+from core.llm.ollama import call_ollama
 
 logger = logging.getLogger(__name__)
 

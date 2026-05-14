@@ -4,10 +4,10 @@ import subprocess
 from pathlib import Path
 from pdf2image import convert_from_path
 
-from core.logger import get_logger
+import logging
 from core.config import TEMP_DIR
 
-log = get_logger(__name__)
+log = logging.getLogger(__name__)
 
 LIBREOFFICE_PATH: str = r"C:\Program Files\LibreOffice\program\soffice.exe"
 

@@ -1,10 +1,7 @@
 """
 Pydantic-модели (контракты) для обмена данными между компонентами PPTX-AI v5.
 
-Ключевые изменения v5:
-- Добавлены GridRow / GridBlock (12-колоночная сетка, height_strategy hug/fill).
-- ColumnInstruction / RowInstruction сохранены для обратной совместимости с LayoutEngine v5.
-- Добавлены контракты Semantic Editor и Router.
+Единый источник истины. Все агенты, движки и рендереры импортируют модели отсюда.
 """
 
 import logging
@@ -83,7 +80,7 @@ class PresentationStrategy(BaseModel):
 
 
 # ════════════════════════════════════════════════════════
-# SEMANTIC EDITOR (Левое полушарие — Слой 0)
+# SEMANTIC EDITOR (Слой 0)
 # ════════════════════════════════════════════════════════
 
 class SemanticBlock(BaseModel):
@@ -121,7 +118,7 @@ class SemanticSlide(BaseModel):
 
 HeightStrategy = Literal["hug", "fill"]
 """
-hug  — блок сжимается до размера содержимого (stretchable: flex_grow=0, size=AUTO).
+hug  — блок сжимается до размера содержимого (stretchable: flex_grow=0).
 fill — блок растягивается на оставшееся пространство (stretchable: flex_grow=1).
 """
 
@@ -130,8 +127,11 @@ class GridBlock(BaseModel):
     """
     Один блок в 12-колоночной сетке.
 
-    col_start + col_span <= 12.
-    Каждый блок точно соответствует одному SemanticBlock.
+    LLM (Spatial Architect) заполняет: block_id, col_start, col_span,
+    height_strategy, render.
+
+    Python (orchestrator) обогащает: semantic_type, content, visual_subtype
+    — копирует из SemanticBlock по block_id.
     """
     block_id: str = Field(description="Ссылка на SemanticBlock.block_id")
     col_start: int = Field(ge=0, le=11, description="Стартовая колонка (0-based)")
@@ -144,6 +144,18 @@ class GridBlock(BaseModel):
         default="ai",
         description="ai — SVG Renderer; external — заглушка (chart/photo/map)",
     )
+    # Поля ниже заполняются orchestrator, НЕ LLM
+    semantic_type: Literal[
+        "heading", "text", "card", "table", "chart", "visual"
+    ] = Field(default="text", description="Тип контента (из SemanticBlock)")
+    content: dict = Field(
+        default_factory=dict,
+        description="Контент блока (копия из SemanticBlock.content)",
+    )
+    visual_subtype: Optional[str] = Field(
+        default=None,
+        description="photo / map / flowchart / pattern / custom_infographic",
+    )
 
 
 class GridRow(BaseModel):
@@ -151,7 +163,6 @@ class GridRow(BaseModel):
     Один горизонтальный ряд слайда.
 
     Сумма col_span всех блоков строки ДОЛЖНА равняться 12.
-    row_lines — оценочное кол-во строк, которые займёт этот ряд (для budget-контроля).
     """
     row_id: str = Field(description="r0, r1, r2…")
     blocks: list[GridBlock] = Field(
@@ -163,15 +174,18 @@ class GridRow(BaseModel):
     )
 
 
+class FooterInstruction(BaseModel):
+    """Футер слайда."""
+    left: str = Field(default="")
+    right: str = Field(default="")
+
+
 class LayoutPlanV5(BaseModel):
     """
-    Выход Spatial Architect v5.
+    Выход Spatial Architect v5 — полный layout-план слайда.
 
-    Отличие от LayoutPlan v4:
-    - rows: list[GridRow] вместо list[RowInstruction]
-    - Явные col_start/col_span вместо grid_span
-    - Явная height_strategy (hug/fill) вместо неявного flex_grow
-    - total_lines — Architect обязан уложиться в LINE_BUDGET (20-25 строк)
+    rows: list[GridRow] — горизонтальные ряды с блоками в 12-колоночной сетке.
+    total_lines — Architect обязан уложиться в LINE_BUDGET (20-25 строк).
     """
     slide_index: int
     slide_role: Literal[
@@ -182,7 +196,7 @@ class LayoutPlanV5(BaseModel):
     needs_footer: bool = False
     composition_schema: Literal["A", "B", "C", "D"] = "A"
     rows: list[GridRow] = Field(default_factory=list)
-    footer: Optional["FooterInstruction"] = None
+    footer: Optional[FooterInstruction] = None
     total_lines: int = Field(
         default=0,
         description="Сумма row_lines всех рядов. Validator: должно быть <= 25.",
@@ -191,53 +205,7 @@ class LayoutPlanV5(BaseModel):
 
 
 # ════════════════════════════════════════════════════════
-# ОБРАТНАЯ СОВМЕСТИМОСТЬ v4 (LayoutEngine v5 использует их)
-# ════════════════════════════════════════════════════════
-
-class ColumnInstruction(BaseModel):
-    """Одна колонка в ряду layout-плана (v4, совместимость с LayoutEngine v5)."""
-    col_id: str = Field(description="c0, c1, c2…")
-    grid_span: int = Field(description="Кол-во колонок сетки из 12")
-    object_type: str = Field(
-        description="heading, text, card, table, chart, visual"
-    )
-    visual_subtype: Optional[str] = Field(
-        default=None,
-        description="photo, map, flowchart, pattern, custom_infographic",
-    )
-    content: dict = Field(default_factory=dict, description="Контент объекта")
-    render: str = Field(default="ai", description="ai / external")
-
-
-class RowInstruction(BaseModel):
-    """Один ряд в layout-плане (v4, совместимость с LayoutEngine v5)."""
-    row_id: str = Field(description="r0, r1, r2…")
-    columns: list[ColumnInstruction] = Field(
-        description="Колонки в ряду, span сумма = 12"
-    )
-
-
-class FooterInstruction(BaseModel):
-    """Футер слайда."""
-    left: str = Field(default="")
-    right: str = Field(default="")
-
-
-class LayoutPlan(BaseModel):
-    """Выход Architect v4 — полный план слайда (обратная совместимость)."""
-    slide_index: int
-    slide_role: str = Field(default="content")
-    header_type: str = Field(default="B", description="A / B / C / none")
-    style_mode: str = Field(default="soft", description="strict / soft")
-    needs_footer: bool = False
-    composition_schema: str = Field(default="A", description="A / B / C / D")
-    rows: list[RowInstruction] = Field(default_factory=list)
-    footer: Optional[FooterInstruction] = None
-    design_notes: str = ""
-
-
-# ════════════════════════════════════════════════════════
-# LAYOUT ENGINE (без изменений)
+# LAYOUT ENGINE
 # ════════════════════════════════════════════════════════
 
 class RenderedText(BaseModel):
@@ -266,7 +234,7 @@ class RenderedText(BaseModel):
 
 class BlockGeometry(BaseModel):
     """Точные пиксельные координаты одного блока после LayoutEngine."""
-    col_id: str
+    block_id: str
     x: float
     y: float
     w: float
@@ -293,7 +261,7 @@ class SlideGeometry(BaseModel):
 
 
 # ════════════════════════════════════════════════════════
-# SVG RENDERER (без изменений)
+# SVG RENDERER
 # ════════════════════════════════════════════════════════
 
 class DesignedSlide(BaseModel):
@@ -301,7 +269,3 @@ class DesignedSlide(BaseModel):
     slide_index: int
     svg_code: str
     generation_time_ms: int = 0
-
-
-# Разрешаем forward-reference FooterInstruction в LayoutPlanV5
-LayoutPlanV5.model_rebuild()

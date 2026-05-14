@@ -1,6 +1,12 @@
 """
 Orchestrator v5 — главный пайплайн PPTX-AI.
-Parser → Strategy → Semantic Editor → Prompt Assembler → Spatial Architect → LayoutEngine → SVG Renderer.
+
+Parser → Strategy → Semantic Editor → Prompt Assembler →
+Spatial Architect → Enrich → LayoutEngine → SVG Renderer.
+
+Ключевое: после Spatial Architect orchestrator обогащает GridBlock-и
+данными из SemanticSlide (content, semantic_type, visual_subtype).
+LLM не гоняет контент туда-сюда — только решает layout.
 """
 
 import json
@@ -12,7 +18,9 @@ from pathlib import Path
 from core.config import TEMP_DIR
 from models.contracts import (
     LayoutPlanV5,
+    GridBlock,
     SemanticSlide,
+    SemanticBlock,
     SlideGeometry,
     DesignedSlide,
     PresentationStrategy,
@@ -28,12 +36,14 @@ CACHE_DIR: Path = TEMP_DIR / "cache"
 # ═══════════════════════════════════════════════════════════════
 
 def _cache_path(slide_idx: int | None, stage: str, ext: str = "json") -> Path:
+    """Путь к файлу кэша для конкретного слайда и стадии."""
     if slide_idx is None:
         return CACHE_DIR / f"{stage}.{ext}"
     return CACHE_DIR / f"slide_{slide_idx}_{stage}.{ext}"
 
 
 def _load_cache(slide_idx: int | None, stage: str, model_class=None):
+    """Загружает кэш. Возвращает None если файла нет или он повреждён."""
     path = _cache_path(slide_idx, stage)
     if not path.exists():
         return None
@@ -45,7 +55,10 @@ def _load_cache(slide_idx: int | None, stage: str, model_class=None):
         return None
 
 
-def _save_cache(slide_idx: int | None, stage: str, data, ext: str = "json") -> None:
+def _save_cache(
+    slide_idx: int | None, stage: str, data, ext: str = "json"
+) -> None:
+    """Сохраняет данные в кэш."""
     CACHE_DIR.mkdir(parents=True, exist_ok=True)
     path = _cache_path(slide_idx, stage, ext)
     if hasattr(data, "model_dump_json"):
@@ -53,14 +66,61 @@ def _save_cache(slide_idx: int | None, stage: str, data, ext: str = "json") -> N
     elif isinstance(data, str):
         path.write_text(data, encoding="utf-8")
     else:
-        path.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
+        path.write_text(
+            json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8"
+        )
 
 
 def clear_cache() -> None:
+    """Удаляет все файлы кэша."""
     if CACHE_DIR.exists():
         for f in CACHE_DIR.iterdir():
             f.unlink()
         logger.info("Кэш очищен")
+
+
+# ═══════════════════════════════════════════════════════════════
+#  ОБОГАЩЕНИЕ LAYOUT (Python, без LLM)
+# ═══════════════════════════════════════════════════════════════
+
+def _enrich_layout(
+    layout: LayoutPlanV5,
+    semantic: SemanticSlide,
+) -> LayoutPlanV5:
+    """
+    Копирует content, semantic_type, visual_subtype из SemanticSlide
+    в каждый GridBlock по совпадению block_id.
+
+    LLM (Spatial Architect) возвращает только layout-решения
+    (col_start, col_span, height_strategy, render).
+    Контент подставляет Python — это безопаснее и экономит токены.
+    """
+    # Индекс: block_id → SemanticBlock
+    sem_index: dict[str, SemanticBlock] = {
+        b.block_id: b for b in semantic.blocks
+    }
+
+    enriched_count = 0
+    for row in layout.rows:
+        for block in row.blocks:
+            sem = sem_index.get(block.block_id)
+            if sem is None:
+                logger.warning(
+                    f"Слайд {layout.slide_index}: block_id='{block.block_id}' "
+                    f"не найден в SemanticSlide — пропускаем обогащение"
+                )
+                continue
+
+            block.semantic_type = sem.semantic_type
+            block.content = sem.content
+            block.visual_subtype = sem.visual_subtype
+            enriched_count += 1
+
+    logger.info(
+        f"Слайд {layout.slide_index}: обогащено {enriched_count} блоков "
+        f"из {len(sem_index)} семантических"
+    )
+    return layout
 
 
 # ═══════════════════════════════════════════════════════════════
@@ -74,9 +134,7 @@ def _process_slide(
     image_path: str | None,
     use_cache: bool,
 ) -> DesignedSlide:
-    """
-    Слой 0 → 0.5 → 1 → LayoutEngine → SVG для одного слайда.
-    """
+    """Слой 0 → 0.5 → 1 → Enrich → LayoutEngine → SVG для одного слайда."""
     from agents.semantic_editor import analyze_slide
     from agents.spatial_architect import design_slide
     from core.prompt_assembler import assemble_prompt_context
@@ -98,7 +156,10 @@ def _process_slide(
         )
         _save_cache(slide_index, "semantic", semantic)
 
-    logger.info(f"Слайд {slide_index}: {len(semantic.blocks)} блоков, {semantic.total_lines} строк")
+    logger.info(
+        f"Слайд {slide_index}: {len(semantic.blocks)} блоков, "
+        f"{semantic.total_lines} строк"
+    )
 
     # ── Слой 0.5: Prompt Assembler ──────────────────────────────
     recommended = [b.semantic_type for b in semantic.blocks]
@@ -126,7 +187,13 @@ def _process_slide(
         )
         _save_cache(slide_index, "layout", layout)
 
-    logger.info(f"Слайд {slide_index}: {len(layout.rows)} рядов, role={layout.slide_role}")
+    logger.info(
+        f"Слайд {slide_index}: {len(layout.rows)} рядов, "
+        f"role={layout.slide_role}"
+    )
+
+    # ── Обогащение: Python подставляет content в GridBlock ──────
+    layout = _enrich_layout(layout, semantic)
 
     # ── LayoutEngine → пиксели ──────────────────────────────────
     geo: SlideGeometry = compute_geometry(layout, strategy)
@@ -161,7 +228,7 @@ def run_pipeline(
     """
     Полный пайплайн v5:
       Parser → Strategy → Semantic Editor → Prompt Assembler →
-      Spatial Architect → LayoutEngine → SVG Renderer.
+      Spatial Architect → Enrich → LayoutEngine → SVG Renderer.
 
     Args:
         pptx_path:    путь к PPTX файлу.
@@ -219,7 +286,9 @@ def run_pipeline(
 
     # ── Фильтр слайдов ──────────────────────────────────────────
     total = min(len(images), len(parsed_list))
-    indices = [i for i in slides if i < total] if slides else list(range(total))
+    indices = (
+        [i for i in slides if i < total] if slides else list(range(total))
+    )
     logger.info(f"Слайдов к обработке: {len(indices)} из {total}")
 
     # ── ШАГ 4-6: Обработка каждого слайда ───────────────────────
@@ -241,7 +310,10 @@ def run_pipeline(
             results.append(DesignedSlide(slide_index=idx, svg_code=""))
 
     logger.info("=" * 60)
-    logger.info(f"PIPELINE v5 DONE: {len(results)} слайдов за {time.time() - t_start:.1f}с")
+    logger.info(
+        f"PIPELINE v5 DONE: {len(results)} слайдов "
+        f"за {time.time() - t_start:.1f}с"
+    )
     logger.info("=" * 60)
     return results
 
@@ -253,12 +325,15 @@ def run_pipeline(
 if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO, format="%(levelname)s - %(message)s")
 
-    pptx_path = sys.argv[1] if len(sys.argv) > 1 else "projects/test_map/test_maps.pptx"
-    no_cache  = "--no-cache"  in sys.argv
+    pptx_path = (
+        sys.argv[1] if len(sys.argv) > 1
+        else "projects/test_map/test_maps.pptx"
+    )
+    no_cache = "--no-cache" in sys.argv
     no_vision = "--no-vision" in sys.argv
 
     accent_override = None
-    slide_list      = None
+    slide_list = None
     for arg in sys.argv:
         if arg.startswith("--slides="):
             slide_list = [int(x) for x in arg.split("=")[1].split(",")]
@@ -275,4 +350,6 @@ if __name__ == "__main__":
 
     for r in results:
         status = "OK" if len(r.svg_code) > 100 else "FAIL"
-        print(f"Слайд {r.slide_index}: {status} ({len(r.svg_code)} символов)")
+        logger.info(
+            f"Слайд {r.slide_index}: {status} ({len(r.svg_code)} символов)"
+        )
