@@ -19,7 +19,7 @@ from models.contracts import (
     SlideGeometry, BlockGeometry, FooterInstruction,
     RenderedText, DesignedSlide,
 )
-from core.text_metrics import line_height, baseline_offset as _get_baseline
+from core.utils.text_metrics import line_height, baseline_offset as _get_baseline
 
 logger = logging.getLogger(__name__)
 

@@ -8,7 +8,7 @@ from lxml import etree
 from pptx import Presentation
 from pptx.util import Pt
 
-from core.logger import get_logger
+from core.utils.logger import get_logger
 
 log = get_logger(__name__)
 

@@ -5,9 +5,9 @@ import logging
 import sys
 from pathlib import Path
 
-from core.llm_client import call_llm
+from core.llm.client import call_llm
 from core.config import MODEL_CLASSIFIER, PROMPTS_DIR
-from core.llm_normalize import normalize_for_model
+from core.llm.normalize import normalize_for_model
 from models.contracts import PresentationStrategy
 
 logger = logging.getLogger(__name__)

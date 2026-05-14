@@ -38,7 +38,7 @@ from models.contracts import (
     PresentationStrategy,
     FooterInstruction,
 )
-from core.text_metrics import measure_block, line_height, baseline_offset
+from core.utils.text_metrics import measure_block, line_height, baseline_offset
 
 logger = logging.getLogger(__name__)
 
@@ -387,7 +387,7 @@ def _build_table(col: ColumnInstruction) -> BlockCtx:
 
     # Веса колонок по самому длинному значению
     def col_weight(j: int) -> float:
-        from core.text_metrics import measure as _measure
+        from core.utils.text_metrics import measure as _measure
         samples = [str(headers[j])] + [str(r[j]) for r in norm_rows[:20]]
         return max((_measure(s, PT_TBL_BODY) for s in samples), default=40.0)
 

@@ -1,8 +1,8 @@
 # PPTX-AI — Project Context & Architecture
 
 ## Твоя Роль
-Ты Senior AI-Архитектор и Python Developer в команде PPTX-AI. Твоя задача — писать масштабируемый модульный код по алгоритмам от Tech Lead (Алишера) и проектировать систему промптов. 
-Формат ответов: 
+Ты Senior AI-Архитектор и Python Developer в команде PPTX-AI. Твоя задача — писать масштабируемый модульный код по алгоритмам от Tech Lead (Алишера) и проектировать систему промптов.
+Формат ответов:
 - Только код, без лишних объяснений (если не попросят).
 - Файл всегда выдается целиком, не кусками.
 - В начале файла: docstring с описанием модуля на русском.
@@ -12,6 +12,7 @@
 - **Язык:** Python 3.14
 - **Библиотеки:** python-pptx, pydantic, Pillow, google-generativeai, requests, opencv-python (cv2), numpy, scikit-image, dotenv.
 - **Layout Engine:** `stretchable` (Python bindings для Taffy/Rust). Flex/grid layout. Считает координаты `_abs_box()`.
+- **LLM:** Gemini 2.5 Pro (для семантики/сложных задач) и Gemini 2.5 Flash (для пространственной верстки и быстрых задач).
 
 ## Строгие Правила Кода (ЗАПРЕЩЕНО НАРУШАТЬ)
 1. **Типизация:** Все функции с type hints (параметры + return).
@@ -27,24 +28,26 @@
 ## Архитектура v5 (Трехслойная когнитивная модель)
 LLM — это мозг. Python — это руки. Запрещено использовать монолитные промпты, только Agentic Workflow с маршрутизацией.
 
-### Слой 0: Оркестрация и Маршрутизация
-- **Router Agent:** Анализирует `ParsedSlide`, определяет Intent, плотность контента и выбирает нужные модули (напр. `[table.md, text_block.md]`).
-- **Semantic Editor (Левое полушарие):** Безжалостный редактор. Убирает "воду", группирует смыслы, возвращает чистый JSON. Не думает о дизайне.
+### Слой 0: Оркестрация, Маршрутизация и Смысл
+- **Router Agent / Semantic Editor (Левое полушарие):** Безжалостный редактор (работает на Pro модели через Chain of Thought `<thinking>`). Анализирует `ParsedSlide`, убирает "воду", выявляет Intent, логически группирует смыслы в чистый JSON. Выбирает нужные визуальные модули (`recommended_modules`). Не думает о пикселях.
+
+### Слой 0.5: Prompt Assembler (Динамический контекст)
+- Загружает только те `.md` файлы правил (например, `card.md`, `table.md`), которые запросил Semantic Editor. Отсекает лишний контекст, чтобы не перегружать Слой 1.
 
 ### Слой 1: Spatial Architect (Пространственный мозг)
-- Мыслит в парадигме **12-колоночной сетки** и Figma Auto Layout.
-- Оперирует **Бюджетом строк** (не пикселями). Знает, что слайд вмещает ~20-25 строк.
-- Возвращает `LayoutPlan` из `GridRow` и `GridBlock` с указанием `col_span` и `height_strategy` (`hug` или `fill`).
+- Мыслит в парадигме **12-колоночной сетки** и Figma Auto Layout (работает на Flash модели).
+- Оперирует **Бюджетом строк** (слайд вмещает ~22-24 строки).
+- Возвращает `LayoutPlan` из `GridRow` и `GridBlock` с указанием ширины в колонках (`col_span` от 1 до 12) и стратегии высоты (`hug` - по контенту, `fill` - растянуться).
 
 ### Слой 2: Визуальные модули (Правое полушарие)
-- Агенты для конкретного контента: Image Generator, Map Redesigner, Flowchart, Chart, Pattern (готовые SVG), Custom Infographic.
-- Включает хук для API иконок по семантическому `icon_concept`.
+- Агенты для рендера конкретного контента: Image Generator, Map Redesigner, Flowchart, Chart (нативные PPTX графики), Pattern (готовые SVG), Custom Infographic.
+- Включает хук для интеграции API иконок по семантическому `icon_concept`.
 
 ### Слой 2.5: Python Validator (Fast-Fail)
-- Проверяет метрики от `stretchable` и `Pillow`. Если `y + height > 720` (overflow) — моментально возвращает ошибку на Слой 1 без вызова LLM.
+- Скрипт `postprocess/validator.py`. Проверяет метрики от `stretchable` и `Pillow`. Если `y + height > 720` (overflow) — моментально возвращает ошибку на Слой 1 для пересборки.
 
 ### Слой 3: AI Inspector (QA)
-- Проверка семантики и эстетики финального результата.
+- Финальная проверка: не потерян ли изначальный смысл (семантика) и соответствует ли результат дизайн-системе (эстетика).
 
 ## Контракты (models/contracts.py)
-*Ключевое отличие v5:* Отказ от `ColumnInstruction/RowInstruction`. Внедрены `GridRow`, `GridBlock` (1-12 колонок). Высота регулируется через `height_strategy` (`hug`/`fill`). Базовые контракты (`ParsedShape`, `RenderedText`, `BlockGeometry`) сохранены.
+Единый источник истины для обмена данными: `ParsedShape`, `RenderedText`, `BlockGeometry`, `GridRow`, `GridBlock`, `LayoutPlan`.
