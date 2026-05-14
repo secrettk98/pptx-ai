@@ -82,6 +82,16 @@ PT_TBL_BODY = 10
 PAD_TBL_X = 8
 PAD_TBL_Y = 6
 
+# ── Compact mode (уменьшенные gaps при overflow) ──────────────
+_compact = False
+
+def _set_compact_mode(on: bool):
+    global _compact
+    _compact = on
+
+def _gap() -> int:
+    """Текущий gap с учётом compact mode."""
+    return GUTTER // 2 if _compact else GUTTER
 
 # ════════════════════════════════════════════════════════════
 #  ПОБОЧНЫЙ КОНТЕЙНЕР: связь Node ↔ метаданные блока
@@ -384,8 +394,12 @@ def _build_table(col: ColumnInstruction) -> BlockCtx:
     # Веса колонок: ограничиваем сверху, иначе одна длинная колонка съест остальные.
     # Минимум 60 (узкие "Δ"/"%" колонки не должны схлопываться), максимум 200.
     raw = [col_weight(j) for j in range(n_cols)]
-    weights = [min(200.0, max(60.0, w)) for w in raw]
-
+    # Ограничиваем максимальный вес: не более 3x от медианы,
+    # чтобы одна длинная колонка не сжимала остальные
+    sorted_raw = sorted(raw)
+    median = sorted_raw[len(sorted_raw) // 2]
+    cap = max(120.0, median * 3.0)
+    weights = [min(cap, max(60.0, w)) for w in raw]
 
     container = Node(
         flex_direction=FlexDirection.COLUMN,
@@ -401,9 +415,12 @@ def _build_table(col: ColumnInstruction) -> BlockCtx:
         bold = is_header
         cell_nodes: list[dict] = []
         row_node = Node(
-            flex_direction=FlexDirection.ROW,
-            align_items=AlignItems.STRETCH,
+        flex_direction=FlexDirection.ROW,
+        gap=_gap(),
+        align_items=AlignItems.STRETCH,
+        size=(AUTO, AUTO),
         )
+
         for j, val in enumerate(cells):
             val = str(val).strip()
             cell = Node(
@@ -480,7 +497,7 @@ def _build_row(row: RowInstruction) -> tuple[Node, list[BlockCtx]]:
     # Хитрость: при наличии gap = 26 нельзя дать 100% всем колонкам — будет overflow.
     # Решение: размер в % считаем с учётом отступа под gutters.
     # available_pct = 100% - (n-1)*gutter_pct, где gutter_pct = 26/1194 ≈ 2.18%
-    gutter_pct = 100.0 * GUTTER / (SLIDE_W - 2 * MARGIN_H)  # ≈ 2.178
+    gutter_pct = 100.0 * _gap() / (SLIDE_W - 2 * MARGIN_H)
     available_pct = 100.0 - (n - 1) * gutter_pct
 
     ctxs: list[BlockCtx] = []
@@ -514,9 +531,9 @@ def _build_slide_tree(
 
     root = Node(
         size=(SLIDE_W, SLIDE_H),
-        padding=(MARGIN_V, MARGIN_H, MARGIN_V, MARGIN_H),  # top, right, bottom, left
+        padding=(MARGIN_V, MARGIN_H, MARGIN_V, MARGIN_H),
         flex_direction=FlexDirection.COLUMN,
-        gap=GUTTER,
+        gap=_gap(),
     )
 
 
@@ -526,10 +543,10 @@ def _build_slide_tree(
         root.add(header_node)
 
     # Контент-зона. Для Type B/C — центрируем ряды по вертикали.
-    justify = JustifyContent.CENTER if plan.header_type in ("B", "C") else JustifyContent.FLEX_START
+    justify = JustifyContent.FLEX_START
     content_root = Node(
         flex_direction=FlexDirection.COLUMN,
-        gap=GUTTER,
+        gap=_gap(),
         flex_grow=1.0,
         justify_content=justify,
     )
@@ -641,10 +658,40 @@ def compute_geometry(
     layout_plan: LayoutPlan,
     strategy: PresentationStrategy,
 ) -> SlideGeometry:
-    """Главный вход: LayoutPlan → SlideGeometry с точными координатами."""
+    """Главный вход: LayoutPlan → SlideGeometry с точными координатами.
+    
+    Если контент не влезает в слайд — повторяет layout с уменьшенными gaps.
+    """
 
     root, ctxs, _header, _footer = _build_slide_tree(layout_plan, strategy)
     root.compute_layout()
+
+    # ── Overflow check: если контент вылезает за SLIDE_H, пересобираем с меньшим gap ──
+    max_bottom = 0.0
+    for ctx in ctxs:
+        _, y, _, h = _abs_box(ctx.node)
+        max_bottom = max(max_bottom, y + h)
+    
+    overflow = max_bottom - (SLIDE_H - MARGIN_V)
+    if overflow > 0:
+        logger.warning(f"Overflow {overflow:.0f}px — пересобираю с компактными gaps")
+        # Уменьшаем GUTTER вдвое, пересобираем
+        saved_gutter = GUTTER
+        _set_compact_mode(True)
+        try:
+            root, ctxs, _header, _footer = _build_slide_tree(layout_plan, strategy)
+            root.compute_layout()
+            
+            # Проверяем ещё раз
+            max_bottom = 0.0
+            for ctx in ctxs:
+                _, y, _, h = _abs_box(ctx.node)
+                max_bottom = max(max_bottom, y + h)
+            overflow2 = max_bottom - (SLIDE_H - MARGIN_V)
+            if overflow2 > 0:
+                logger.warning(f"Всё ещё overflow {overflow2:.0f}px после compact mode")
+        finally:
+            _set_compact_mode(False)
 
     blocks: list[BlockGeometry] = []
     for ctx in ctxs:
