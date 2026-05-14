@@ -179,3 +179,14 @@ pptx-ai/
 
 **Фаза 7 — Оптимизация**
 - [ ] pytest (цель: 80% слайдов без ручных правок)
+
+## Архитектурная проблема: LayoutPlanV5 ↔ LayoutEngine
+
+`layout_engine.py` принимает старый `LayoutPlan` (RowInstruction/ColumnInstruction).
+`orchestrator.py` передаёт новый `LayoutPlanV5` (GridRow/GridBlock).
+
+Два варианта решения (на выбор):
+- Вариант A: Адаптер _v5_to_v4() в orchestrator.py — минимальный риск
+- Вариант B: Рефакторинг compute_geometry() под LayoutPlanV5 — архитектурно чище
+
+Решение не принято. Обсудить перед кодингом.
