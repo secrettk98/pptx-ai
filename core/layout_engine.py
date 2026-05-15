@@ -98,7 +98,13 @@ class BlockCtx:
 # ════════════════════════════════════════════════════════════
 
 def _make_text_measure(text: str, size_pt: float, bold: bool = False):
-    """Фабрика measure-функции для текстового листового узла."""
+    """Фабрика measure-функции для текстового листового узла.
+
+    Возвращает width=available (не actual!) — это критично для wrap.
+    Если вернуть actual_w, Node займёт только нужную ширину, но при
+    повторном wrap-е в _collect_rendered_texts эта ширина окажется
+    меньше фактической и текст обрежется.
+    """
     def measure(node, known_dimensions, available_space):
         kw = known_dimensions.width.value
         aw = available_space.width
@@ -108,8 +114,10 @@ def _make_text_measure(text: str, size_pt: float, bold: bool = False):
             w = float(aw.value)
         else:
             w = 10000.0
-        actual_w, actual_h, _ = measure_block(text, w, size_pt=size_pt, bold=bold)
-        return SizePoints(width=actual_w, height=actual_h)
+        _, actual_h, _ = measure_block(text, w, size_pt=size_pt, bold=bold)
+        # Возвращаем width=w (доступную), а не actual_w — wrap должен
+        # происходить именно по этой ширине и в layout_engine, и в svg_renderer
+        return SizePoints(width=w, height=actual_h)
     return measure
 
 
@@ -120,14 +128,14 @@ def _make_text_measure(text: str, size_pt: float, bold: bool = False):
 #  контентом для wrap текста / распределения карточек / ячеек таблиц.
 # ════════════════════════════════════════════════════════════
 
-def _slot_node(block: GridBlock) -> Node:
+def _slot_node(block: GridBlock, gap: int = GAP_INTRA_BLOCK) -> Node:
     """Корневой Node блока с фиксированным размером в пикселях."""
     w = block.col_span * CELL_WIDTH
     h = block.height_cells * CELL_HEIGHT
     return Node(
         size=(w, h),
         flex_direction=FlexDirection.COLUMN,
-        gap=GAP_INTRA_BLOCK,
+        gap=gap,
         align_items=AlignItems.STRETCH,
     )
 
@@ -138,8 +146,8 @@ def _build_heading(block: GridBlock) -> BlockCtx:
     title = (c.get("title") or "").strip()
     subtitle = (c.get("subtitle") or "").strip()
 
-    container = _slot_node(block)
-    container.gap = 6
+    container = _slot_node(block, gap=6)
+
     text_specs: list[dict] = []
 
     if title:
@@ -277,8 +285,7 @@ def _build_card(block: GridBlock) -> BlockCtx:
     c = block.content or {}
     cards = c.get("cards") or []
 
-    container = _slot_node(block)
-    container.gap = GAP_CARDS
+    container = _slot_node(block, gap=GAP_CARDS)
 
     text_specs: list[dict] = []
     wrapper_nodes: list[dict] = []
@@ -322,8 +329,7 @@ def _build_table(block: GridBlock) -> BlockCtx:
     cap = max(120.0, median * 3.0)
     weights = [min(cap, max(60.0, w)) for w in raw_weights]
 
-    container = _slot_node(block)
-    container.gap = GAP_TABLE_ROW
+    container = _slot_node(block, gap=GAP_TABLE_ROW)
 
     text_specs: list[dict] = []
     wrapper_nodes: list[dict] = []

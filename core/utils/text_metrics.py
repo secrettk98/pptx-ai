@@ -199,6 +199,60 @@ def truncate(text: str, max_w: float, size_pt: float = 12, bold: bool = False) -
         out += ch
     return out + ell
 
+# ── Измерение в клетках (для tool use) ───────────────────────
+
+import math
+from core.config import CELL_WIDTH, CELL_HEIGHT, CARD_PADDING_PX
+
+
+def _inner_width_px(width_cols: int) -> float:
+    """Внутренняя ширина блока в пикселях с учётом padding карточки."""
+    if width_cols < 1:
+        raise ValueError(f"width_cols должен быть >= 1, получено {width_cols}")
+    return width_cols * CELL_WIDTH - 2 * CARD_PADDING_PX
+
+
+def measure_text_in_cells(
+    text: str,
+    width_cols: int,
+    size_pt: float,
+    bold: bool = False,
+    line_factor: float = LINE_HEIGHT_FACTOR,
+) -> int:
+    """Высота текстового блока в клетках сетки. Округление вверх."""
+    if not text:
+        return 0
+    inner_w = _inner_width_px(width_cols)
+    _, h_px, _ = measure_block(text, inner_w, size_pt, bold, line_factor)
+    return max(1, math.ceil(h_px / CELL_HEIGHT))
+
+
+def measure_table_in_cells(
+    table_data: list[list[str]],
+    width_cols: int,
+    size_pt: float,
+    bold_header: bool = True,
+    line_factor: float = LINE_HEIGHT_FACTOR,
+) -> int:
+    """Высота таблицы в клетках. Ширина колонок — равномерно."""
+    if not table_data or not table_data[0]:
+        return 0
+    n_cols = len(table_data[0])
+    inner_w = _inner_width_px(width_cols)
+    cell_w = inner_w / n_cols - 2 * CARD_PADDING_PX
+    if cell_w <= 0:
+        raise ValueError(f"Ширина ячейки <=0 при width_cols={width_cols}, n_cols={n_cols}")
+
+    total_h_px = 0.0
+    for row_idx, row in enumerate(table_data):
+        is_header = row_idx == 0 and bold_header
+        row_h = 0.0
+        for cell_text in row:
+            _, h_px, _ = measure_block(str(cell_text), cell_w, size_pt, is_header, line_factor)
+            row_h = max(row_h, h_px)
+        total_h_px += row_h
+    return max(1, math.ceil(total_h_px / CELL_HEIGHT))
+
 
 # ── Smoke-test ───────────────────────────────────────────────
 

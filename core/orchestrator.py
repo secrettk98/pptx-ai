@@ -252,7 +252,7 @@ def _process_slide(
 
     logger.info(
         f"Слайд {slide_index}: {len(semantic.blocks)} блоков, "
-        f"{semantic.total_lines} строк"
+        f"{semantic.total_height_cells} клеток"
     )
 
     # ── Слой 0.5: Prompt Assembler ──────────────────────────────

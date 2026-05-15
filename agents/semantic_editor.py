@@ -1,8 +1,9 @@
 """
-Semantic Editor (Слой 0) — анализирует ParsedSlide, очищает контент,
-определяет смысловые блоки и возвращает SemanticSlide.
-Модель: Gemini 2.5 Pro (Chain of Thought via <thinking>).
-Не принимает никаких дизайн-решений.
+Semantic Editor (Слой 0) v5 — анализирует ParsedSlide, очищает контент,
+определяет смысловые блоки, делает черновой layout (proposed_col_span)
+и меряет точную высоту в клетках через tool measure_texts_batch.
+
+Модель: Gemini 2.5 Pro с function calling.
 """
 
 import json
@@ -11,8 +12,9 @@ import re
 from pathlib import Path
 
 from core.config import MODEL_BRAIN, PROMPTS_DIR
-from core.llm.client import call_llm
+from core.llm.client import call_llm_with_tools
 from core.llm.normalize import normalize_for_model
+from core.llm.tools import TOOL_DECLARATIONS, TOOL_HANDLERS
 from models.contracts import PresentationStrategy, SemanticBlock, SemanticSlide
 
 logger = logging.getLogger(__name__)
@@ -54,10 +56,7 @@ def _strip_thinking(raw: str) -> str:
 
 
 def _parse_response(raw: str, slide_index: int) -> SemanticSlide:
-    """
-    Парсит JSON-ответ LLM → SemanticSlide.
-    Ожидаемый формат: {"blocks": [...], "total_lines": int}
-    """
+    """Парсит JSON-ответ LLM → SemanticSlide v5."""
     clean = _strip_thinking(raw)
     try:
         data = json.loads(clean)
@@ -71,19 +70,20 @@ def _parse_response(raw: str, slide_index: int) -> SemanticSlide:
     for i, b in enumerate(blocks_raw):
         try:
             b_norm = normalize_for_model(b, SemanticBlock)
-            # Гарантируем block_id если LLM пропустил
             if not b_norm.get("block_id"):
                 b_norm["block_id"] = f"sb{i}"
             blocks.append(SemanticBlock(**b_norm))
         except Exception as e:
             logger.warning(f"Слайд {slide_index}, блок {i} пропущен: {e}")
 
-    total_lines: int = data.get("total_lines") or sum(b.line_budget for b in blocks)
+    total_height: int = data.get("total_height_cells") or sum(
+        b.height_cells for b in blocks
+    )
 
     return SemanticSlide(
         slide_index=slide_index,
         blocks=blocks,
-        total_lines=total_lines,
+        total_height_cells=total_height,
     )
 
 
@@ -96,27 +96,26 @@ def analyze_slide(
     """
     Слой 0: анализирует один слайд и возвращает SemanticSlide.
 
-    Args:
-        parsed_slide:  dict (ParsedSlide.model_dump())
-        strategy:      стратегия презентации
-        slide_index:   индекс слайда
-        image_path:    путь к JPG-скриншоту (опционально, для Vision)
-
-    Returns:
-        SemanticSlide с list[SemanticBlock]
+    LLM использует tool measure_texts_batch для точного измерения
+    текстовых блоков и таблиц в клетках сетки 12×27.
+    Для card/chart/visual/image LLM считает высоту сама по правилам.
     """
-    logger.info(f"SemanticEditor: слайд {slide_index}, vision={image_path is not None}")
+    logger.info(
+        f"SemanticEditor v5: слайд {slide_index}, vision={image_path is not None}"
+    )
 
     system_prompt = _load_system_prompt()
     user_msg = _build_user_message(parsed_slide, strategy, slide_index)
 
     try:
-        raw = call_llm(
+        raw = call_llm_with_tools(
             prompt=user_msg,
             model_name=MODEL_BRAIN,
+            tools=TOOL_DECLARATIONS,
+            handlers=TOOL_HANDLERS,
             image_path=image_path,
-            json_mode=False,   # False — ответ содержит <thinking>, потом JSON
             system_instruction=system_prompt,
+            json_mode=False,
         )
     except Exception as e:
         logger.error(f"Слайд {slide_index}: LLM вызов упал: {e}")
@@ -125,6 +124,6 @@ def analyze_slide(
     result = _parse_response(raw, slide_index)
     logger.info(
         f"SemanticEditor слайд {slide_index}: "
-        f"{len(result.blocks)} блоков, {result.total_lines} строк"
+        f"{len(result.blocks)} блоков, {result.total_height_cells} клеток"
     )
     return result
