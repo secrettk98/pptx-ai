@@ -1,17 +1,15 @@
-"""LayoutEngine v5 — flex-движок на stretchable + точные метрики Pillow/Inter.
+"""LayoutEngine v5 — клеточная сетка 12×27 → точные пиксели.
 
 Превращает LayoutPlanV5 (GridRow/GridBlock от Spatial Architect)
-в SlideGeometry (точные пиксели + готовые строки для SVG Renderer).
+в SlideGeometry с пиксельными координатами и готовыми строками для SVG Renderer.
 
-Архитектура дерева stretchable:
-    SlideRoot (column, padding=margins)
-     ├─ HeaderRow [optional, type A]
-     ├─ ContentRoot (column, flex_grow=1)
-     │   ├─ Row 0 (row, gap=gutter)
-     │   │   ├─ Slot (%-ширина) → Block
-     │   │   └─ Slot → Block
-     │   └─ Row N
-     └─ FooterRow [optional]
+Архитектура:
+    - Ряды позиционируются absolute по row_start_cell × CELL_HEIGHT
+    - Внутри ряда блоки получают фиксированную ширину col_span × CELL_WIDTH
+    - stretchable используется только для внутренней структуры блоков
+      (wrap текста, карточки, ячейки таблиц)
+    - Авто-центрирование: если Architect прижал контент к верху и есть запас,
+      все ряды сдвигаются на (GRID_ROWS - total_used) // 2 клеток вниз
 
 Контракт: compute_geometry(plan, strategy) → SlideGeometry.
 """
@@ -24,11 +22,24 @@ from math import isnan
 from typing import Optional
 
 from stretchable import Node, Edge
-from stretchable.style import AUTO, PCT
+from stretchable.style import AUTO
 from stretchable.style.geometry.length import Scale
 from stretchable.style.geometry.size import SizePoints
-from stretchable.style.props import FlexDirection, AlignItems, JustifyContent
+from stretchable.style.props import FlexDirection, AlignItems
 
+from core.config import (
+    SLIDE_WIDTH,
+    SLIDE_HEIGHT,
+    SLIDE_MARGIN_X,
+    SLIDE_MARGIN_Y,
+    WORKING_AREA_W,
+    WORKING_AREA_H,
+    CELL_WIDTH,
+    CELL_HEIGHT,
+    GRID_COLS,
+    GRID_ROWS,
+    ROW_GAP_CELLS,
+)
 from models.contracts import (
     LayoutPlanV5,
     GridRow,
@@ -37,117 +48,89 @@ from models.contracts import (
     BlockGeometry,
     RenderedText,
     PresentationStrategy,
-    FooterInstruction,
 )
-from core.utils.text_metrics import measure_block, line_height, baseline_offset
+from core.utils.text_metrics import measure_block, line_height
 
 logger = logging.getLogger(__name__)
 
-
-# ── Геометрия слайда ─────────────────────────────────────────
-SLIDE_W = 1280
-SLIDE_H = 720
-MARGIN_H = 43
-MARGIN_V = 20
-GUTTER = 26
-
-HEADER_A_H = 70
-FOOTER_H = 30
 
 # ── Типографика (pt) ─────────────────────────────────────────
 PT_HEAD = 24
 PT_SUB = 12
 PT_BTITLE = 15
 PT_BODY = 12
-PT_AUX = 10
-
-# Минимальные высоты блоков
-MIN_H_HEADING = 50
-MIN_H_TEXT = 50
-MIN_H_PLACEHOLDER = 200
-MIN_H_CARD = 140
-MIN_H_TABLE = 100
-
-# Внутренние отступы
-PAD_BLOCK = 14
-PAD_CARD = 18
-
-# Типографика карточки
 PT_CARD_NUM = 28
 PT_CARD_TITLE = 14
 PT_CARD_BODY = 11
-
-# Типографика таблицы
 PT_TBL_HEAD = 11
 PT_TBL_BODY = 10
+
+# ── Внутренние отступы блоков (px) ────────────────────────────
+PAD_CARD = 18
 PAD_TBL_X = 8
 PAD_TBL_Y = 6
-
-# ── Compact mode (уменьшенные gaps при overflow) ──────────────
-_compact = False
-
-
-def _set_compact_mode(on: bool) -> None:
-    global _compact
-    _compact = on
-
-
-def _gap() -> int:
-    """Текущий gap с учётом compact mode."""
-    return GUTTER // 2 if _compact else GUTTER
+GAP_INTRA_BLOCK = 8        # вертикальный gap внутри блока между текстами
+GAP_CARDS = 12             # gap между карточками
+GAP_TABLE_ROW = 0          # gap между рядами таблицы (управляется padding)
+GAP_TABLE_COL = 0          # gap между колонками таблицы
 
 
 # ════════════════════════════════════════════════════════════
-#  ПОБОЧНЫЙ КОНТЕЙНЕР: связь Node ↔ метаданные блока
+#  КОНТЕЙНЕР: связь Node ↔ метаданные блока
 # ════════════════════════════════════════════════════════════
 
 @dataclass
 class BlockCtx:
-    """Контекст блока — связь между stretchable Node и данными GridBlock."""
+    """Контекст блока — связь stretchable Node и данных GridBlock."""
     node: Node
     block: GridBlock
     text_specs: list[dict] = field(default_factory=list)
     wrapper_nodes: list[dict] = field(default_factory=list)
+    # Абсолютные координаты ряда — выставляются на этапе сборки
+    row_x: float = 0.0
+    row_y: float = 0.0
+    block_w: float = 0.0
+    block_h: float = 0.0
 
 
 # ════════════════════════════════════════════════════════════
-#  ИЗМЕРИТЕЛИ ТЕКСТА (measure_func для stretchable)
+#  ИЗМЕРИТЕЛЬ ТЕКСТА (measure_func для stretchable)
 # ════════════════════════════════════════════════════════════
 
-def _make_text_measure(
-    text: str, size_pt: float, bold: bool = False, min_h: float = 0.0
-):
+def _make_text_measure(text: str, size_pt: float, bold: bool = False):
     """Фабрика measure-функции для текстового листового узла."""
     def measure(node, known_dimensions, available_space):
         kw = known_dimensions.width.value
         aw = available_space.width
-
         if not isnan(kw):
             w = float(kw)
         elif aw.scale == Scale.POINTS and not isnan(aw.value):
             w = float(aw.value)
         else:
             w = 10000.0
-
         actual_w, actual_h, _ = measure_block(text, w, size_pt=size_pt, bold=bold)
-        h = max(actual_h, min_h)
-        return SizePoints(width=actual_w, height=h)
-
+        return SizePoints(width=actual_w, height=actual_h)
     return measure
 
 
 # ════════════════════════════════════════════════════════════
-#  FLEX_GROW ПО HEIGHT_STRATEGY
+#  СТРОИТЕЛИ ВНУТРЕННЕЙ СТРУКТУРЫ БЛОКОВ
+#  Каждый builder создаёт корневой Node с фиксированными размерами слота
+#  (col_span × CELL_WIDTH, height_cells × CELL_HEIGHT) и наполняет внутренним
+#  контентом для wrap текста / распределения карточек / ячеек таблиц.
 # ════════════════════════════════════════════════════════════
 
-def _flex_grow_for(block: GridBlock) -> float:
-    """fill-блоки растягиваются, hug — нет."""
-    return 1.0 if block.height_strategy == "fill" else 0.0
+def _slot_node(block: GridBlock) -> Node:
+    """Корневой Node блока с фиксированным размером в пикселях."""
+    w = block.col_span * CELL_WIDTH
+    h = block.height_cells * CELL_HEIGHT
+    return Node(
+        size=(w, h),
+        flex_direction=FlexDirection.COLUMN,
+        gap=GAP_INTRA_BLOCK,
+        align_items=AlignItems.STRETCH,
+    )
 
-
-# ════════════════════════════════════════════════════════════
-#  СТРОИТЕЛИ БЛОКОВ
-# ════════════════════════════════════════════════════════════
 
 def _build_heading(block: GridBlock) -> BlockCtx:
     """heading: title (24pt bold) + опц. subtitle (12pt) + акцентная линия."""
@@ -155,38 +138,31 @@ def _build_heading(block: GridBlock) -> BlockCtx:
     title = (c.get("title") or "").strip()
     subtitle = (c.get("subtitle") or "").strip()
 
-    container = Node(
-        flex_direction=FlexDirection.COLUMN,
-        gap=6,
-        flex_grow=_flex_grow_for(block),
-        flex_shrink=1.0,
-    )
-
+    container = _slot_node(block)
+    container.gap = 6
     text_specs: list[dict] = []
 
     if title:
-        title_node = Node(measure=_make_text_measure(title, PT_HEAD, bold=True))
-        container.add(title_node)
+        n = Node(measure=_make_text_measure(title, PT_HEAD, bold=True))
+        container.add(n)
         text_specs.append({
             "role": "title", "text": title,
-            "size_pt": PT_HEAD, "bold": True,
-            "_node": title_node,
+            "size_pt": PT_HEAD, "bold": True, "_node": n,
         })
 
     if subtitle:
-        sub_node = Node(measure=_make_text_measure(subtitle, PT_SUB))
-        container.add(sub_node)
+        n = Node(measure=_make_text_measure(subtitle, PT_SUB))
+        container.add(n)
         text_specs.append({
             "role": "subtitle", "text": subtitle,
-            "size_pt": PT_SUB, "bold": False,
-            "_node": sub_node,
+            "size_pt": PT_SUB, "bold": False, "_node": n,
         })
 
     line_node = Node(size=(60, 3))
     container.add(line_node)
     text_specs.append({
-        "role": "accent_line", "text": "", "size_pt": 0, "bold": False,
-        "_node": line_node,
+        "role": "accent_line", "text": "",
+        "size_pt": 0, "bold": False, "_node": line_node,
     })
 
     return BlockCtx(node=container, block=block, text_specs=text_specs)
@@ -199,13 +175,7 @@ def _build_text(block: GridBlock) -> BlockCtx:
     body = (c.get("body") or "").strip()
     bullets = c.get("bullet_points") or []
 
-    container = Node(
-        flex_direction=FlexDirection.COLUMN,
-        gap=8,
-        flex_grow=_flex_grow_for(block),
-        flex_shrink=1.0,
-    )
-
+    container = _slot_node(block)
     text_specs: list[dict] = []
 
     if title:
@@ -213,8 +183,7 @@ def _build_text(block: GridBlock) -> BlockCtx:
         container.add(n)
         text_specs.append({
             "role": "title", "text": title,
-            "size_pt": PT_BTITLE, "bold": True,
-            "_node": n,
+            "size_pt": PT_BTITLE, "bold": True, "_node": n,
         })
 
     if bullets:
@@ -222,54 +191,30 @@ def _build_text(block: GridBlock) -> BlockCtx:
             b = str(b).strip()
             if not b:
                 continue
-            n = Node(
-                measure=_make_text_measure(b, PT_BODY, min_h=line_height(PT_BODY))
-            )
+            n = Node(measure=_make_text_measure(b, PT_BODY))
             container.add(n)
             text_specs.append({
                 "role": "bullet", "text": b,
-                "size_pt": PT_BODY, "bold": False,
-                "_node": n,
+                "size_pt": PT_BODY, "bold": False, "_node": n,
                 "extra": {"bullet_index": i},
             })
     elif body:
-        n = Node(
-            measure=_make_text_measure(body, PT_BODY, min_h=line_height(PT_BODY))
-        )
+        n = Node(measure=_make_text_measure(body, PT_BODY))
         container.add(n)
         text_specs.append({
             "role": "body", "text": body,
-            "size_pt": PT_BODY, "bold": False,
-            "_node": n,
+            "size_pt": PT_BODY, "bold": False, "_node": n,
         })
-
-    if not text_specs:
-        container = Node(
-            min_size=(AUTO, MIN_H_TEXT),
-            flex_grow=_flex_grow_for(block),
-            flex_shrink=1.0,
-        )
 
     return BlockCtx(node=container, block=block, text_specs=text_specs)
 
 
 def _build_placeholder(block: GridBlock) -> BlockCtx:
-    """chart/visual — заглушка фиксированного размера."""
-    node = Node(
-        min_size=(AUTO, MIN_H_PLACEHOLDER),
-        flex_grow=_flex_grow_for(block),
-        flex_shrink=1.0,
-    )
-    return BlockCtx(node=node, block=block, text_specs=[])
+    """chart/visual — пустой слот заданного размера (рендер через external)."""
+    return BlockCtx(node=_slot_node(block), block=block, text_specs=[])
 
 
-# ════════════════════════════════════════════════════════════
-#  КАРТОЧКИ
-# ════════════════════════════════════════════════════════════
-
-def _build_card_inner(
-    card: dict, card_index: int
-) -> tuple[Node, list[dict]]:
+def _build_card_inner(card: dict, card_index: int) -> tuple[Node, list[dict]]:
     """Одна карточка — flex column с числом/иконкой + title + body."""
     container = Node(
         flex_direction=FlexDirection.COLUMN,
@@ -278,7 +223,6 @@ def _build_card_inner(
         flex_grow=1.0,
         flex_shrink=1.0,
         flex_basis=0,
-        min_size=(AUTO, MIN_H_CARD),
         align_items=AlignItems.STRETCH,
     )
     specs: list[dict] = []
@@ -333,26 +277,15 @@ def _build_card(block: GridBlock) -> BlockCtx:
     c = block.content or {}
     cards = c.get("cards") or []
 
-    container = Node(
-        flex_direction=FlexDirection.COLUMN,
-        gap=12,
-        flex_grow=_flex_grow_for(block),
-        flex_shrink=1.0,
-        align_items=AlignItems.STRETCH,
-        size=(AUTO, AUTO),
-    )
+    container = _slot_node(block)
+    container.gap = GAP_CARDS
 
     text_specs: list[dict] = []
+    wrapper_nodes: list[dict] = []
 
     if not cards:
-        container = Node(
-            min_size=(AUTO, MIN_H_CARD),
-            flex_grow=_flex_grow_for(block),
-            flex_shrink=1.0,
-        )
         return BlockCtx(node=container, block=block, text_specs=[])
 
-    wrapper_nodes: list[dict] = []
     for i, card in enumerate(cards):
         card_node, specs = _build_card_inner(card, card_index=i)
         container.add(card_node)
@@ -364,10 +297,6 @@ def _build_card(block: GridBlock) -> BlockCtx:
         text_specs=text_specs, wrapper_nodes=wrapper_nodes,
     )
 
-
-# ════════════════════════════════════════════════════════════
-#  ТАБЛИЦЫ
-# ════════════════════════════════════════════════════════════
 
 def _build_table(block: GridBlock) -> BlockCtx:
     """Таблица: flex column из ряда заголовков + рядов данных."""
@@ -393,12 +322,9 @@ def _build_table(block: GridBlock) -> BlockCtx:
     cap = max(120.0, median * 3.0)
     weights = [min(cap, max(60.0, w)) for w in raw_weights]
 
-    container = Node(
-        flex_direction=FlexDirection.COLUMN,
-        flex_grow=_flex_grow_for(block),
-        flex_shrink=1.0,
-        min_size=(AUTO, MIN_H_TABLE),
-    )
+    container = _slot_node(block)
+    container.gap = GAP_TABLE_ROW
+
     text_specs: list[dict] = []
     wrapper_nodes: list[dict] = []
 
@@ -410,11 +336,10 @@ def _build_table(block: GridBlock) -> BlockCtx:
         cell_nodes: list[dict] = []
         row_node = Node(
             flex_direction=FlexDirection.ROW,
-            gap=_gap(),
+            gap=GAP_TABLE_COL,
             align_items=AlignItems.STRETCH,
             size=(AUTO, AUTO),
         )
-
         for j, val in enumerate(cells):
             val = str(val).strip()
             cell = Node(
@@ -454,7 +379,7 @@ def _build_table(block: GridBlock) -> BlockCtx:
 
 # ── Реестр строителей ─────────────────────────────────────────
 
-_BUILDERS: dict[str, callable] = {
+_BUILDERS: dict = {
     "heading": _build_heading,
     "text": _build_text,
     "card": _build_card,
@@ -471,90 +396,35 @@ def _build_block(block: GridBlock) -> BlockCtx:
 
 
 # ════════════════════════════════════════════════════════════
-#  СБОРКА РЯДА И ВСЕГО СЛАЙДА
+#  АВТО-ЦЕНТРИРОВАНИЕ
 # ════════════════════════════════════════════════════════════
 
-def _build_row(row: GridRow) -> tuple[Node, list[BlockCtx]]:
-    """Один ряд = flex row, блоки получают точную ширину в % от ряда."""
-    row_node = Node(
-        flex_direction=FlexDirection.ROW,
-        gap=GUTTER,
-        align_items=AlignItems.STRETCH,
-        size=(AUTO, AUTO),
-    )
+def _compute_auto_shift_cells(plan: LayoutPlanV5) -> int:
+    """Если контент прижат к верху и есть запас — центрируем по вертикали.
 
-    total_span = sum(b.col_span for b in row.blocks) or 12
-    n = len(row.blocks)
-    gutter_pct = 100.0 * _gap() / (SLIDE_W - 2 * MARGIN_H)
-    available_pct = 100.0 - (n - 1) * gutter_pct
-
-    ctxs: list[BlockCtx] = []
-    for block in row.blocks:
-        ctx = _build_block(block)
-        col_pct = available_pct * block.col_span / total_span
-
-        slot = Node(
-            size=(col_pct * PCT, AUTO),
-            flex_shrink=0.0,
-            flex_grow=0.0,
-            align_items=AlignItems.STRETCH,
-            flex_direction=FlexDirection.COLUMN,
-        )
-        slot.add(ctx.node)
-        row_node.add(slot)
-        ctxs.append(ctx)
-
-    return row_node, ctxs
-
-
-def _build_slide_tree(
-    plan: LayoutPlanV5,
-    strategy: PresentationStrategy,
-) -> tuple[Node, list[BlockCtx], Optional[Node], Optional[Node]]:
-    """Строит всё дерево слайда."""
-    root = Node(
-        size=(SLIDE_W, SLIDE_H),
-        padding=(MARGIN_V, MARGIN_H, MARGIN_V, MARGIN_H),
-        flex_direction=FlexDirection.COLUMN,
-        gap=_gap(),
-    )
-
-    header_node = None
-    if plan.header_type == "A":
-        header_node = Node(size=(AUTO, HEADER_A_H))
-        root.add(header_node)
-
-    content_root = Node(
-        flex_direction=FlexDirection.COLUMN,
-        gap=_gap(),
-        flex_grow=1.0,
-        justify_content=JustifyContent.FLEX_START,
-    )
-    root.add(content_root)
-
-    all_ctxs: list[BlockCtx] = []
-    for row in plan.rows:
-        row_node, ctxs = _build_row(row)
-        content_root.add(row_node)
-        all_ctxs.extend(ctxs)
-
-    footer_node = None
-    if plan.needs_footer and plan.footer:
-        footer_node = Node(size=(AUTO, FOOTER_H))
-        root.add(footer_node)
-
-    return root, all_ctxs, header_node, footer_node
+    Возвращает количество клеток, на которое нужно сдвинуть все ряды вниз.
+    Если Architect уже расставил с offset'ом (min row_start_cell > 0) — 0.
+    """
+    if not plan.rows:
+        return 0
+    min_start = min(r.row_start_cell for r in plan.rows)
+    if min_start > 0:
+        return 0
+    max_bottom = max(r.row_start_cell + r.height_cells for r in plan.rows)
+    if max_bottom >= GRID_ROWS:
+        return 0
+    return (GRID_ROWS - max_bottom) // 2
 
 
 # ════════════════════════════════════════════════════════════
-#  ОБХОД ДЕРЕВА: stretchable Node → абсолютные координаты
+#  ВЫЧИСЛЕНИЕ АБСОЛЮТНЫХ КООРДИНАТ
 # ════════════════════════════════════════════════════════════
 
-def _abs_box(node: Node) -> tuple[float, float, float, float]:
-    """Абсолютные (от корня слайда) x/y/w/h узла."""
+def _abs_box_within(node: Node) -> tuple[float, float, float, float]:
+    """Относительные координаты узла в пределах своего поддерева."""
     x, y = 0.0, 0.0
     cur = node
-    while cur is not None:
+    while cur is not None and cur.parent is not None:
         b = cur.get_box(Edge.BORDER)
         x += b.x
         y += b.y
@@ -565,17 +435,20 @@ def _abs_box(node: Node) -> tuple[float, float, float, float]:
 
 def _collect_rendered_texts(
     ctx: BlockCtx,
-    block_abs: tuple[float, float, float, float],
+    block_origin_x: float,
+    block_origin_y: float,
 ) -> list[RenderedText]:
-    """Перебирает text_specs, считает абс. позицию и wrap по фактической ширине."""
+    """Считает абс. координаты текстов в блоке и делает финальный wrap."""
     out: list[RenderedText] = []
 
     for spec in ctx.text_specs:
         node: Node = spec["_node"]
-        ax, ay, aw, ah = _abs_box(node)
+        rx, ry, rw, rh = _abs_box_within(node)
+        ax = block_origin_x + rx
+        ay = block_origin_y + ry
 
         _, _, lines = measure_block(
-            spec["text"], aw, size_pt=spec["size_pt"], bold=spec["bold"]
+            spec["text"], rw, size_pt=spec["size_pt"], bold=spec["bold"]
         )
 
         out.append(RenderedText(
@@ -585,12 +458,11 @@ def _collect_rendered_texts(
             bold=spec["bold"],
             x=round(ax, 1),
             y=round(ay, 1),
-            w=round(aw, 1),
-            h=round(ah, 1),
+            w=round(rw, 1),
+            h=round(rh, 1),
             extra=spec.get("extra", {}),
         ))
 
-    # Координаты обёрток (card/cell) в extra
     if ctx.wrapper_nodes:
         wrappers: dict[str, tuple[float, float, float, float]] = {}
         for wn in ctx.wrapper_nodes:
@@ -598,7 +470,10 @@ def _collect_rendered_texts(
                 f"{wn['kind']}_{wn.get('index', '')}_"
                 f"{wn.get('row', '')}_{wn.get('col', '')}"
             )
-            wrappers[key] = _abs_box(wn["node"])
+            rx, ry, rw, rh = _abs_box_within(wn["node"])
+            wrappers[key] = (
+                block_origin_x + rx, block_origin_y + ry, rw, rh
+            )
 
         for rt in out:
             if rt.role.startswith("card_"):
@@ -611,7 +486,6 @@ def _collect_rendered_texts(
                         rt.extra["card_y"] = round(wy, 1)
                         rt.extra["card_w"] = round(ww, 1)
                         rt.extra["card_h"] = round(wh, 1)
-
             elif rt.role in ("cell_header", "cell_body"):
                 row = rt.extra.get("row")
                 col = rt.extra.get("col")
@@ -638,60 +512,62 @@ def compute_geometry(
     layout_plan: LayoutPlanV5,
     strategy: PresentationStrategy,
 ) -> SlideGeometry:
-    """Главный вход: LayoutPlanV5 → SlideGeometry с точными координатами.
+    """LayoutPlanV5 (клетки 12×27) → SlideGeometry (пиксели).
 
-    Если контент не влезает — повторяет layout с уменьшенными gaps.
+    Алгоритм:
+        1. Считаем auto-shift для вертикального центрирования
+        2. Для каждого ряда: позиция Y = (row_start_cell + shift) × CELL_HEIGHT
+        3. Для каждого блока в ряду: позиция X = col_start × CELL_WIDTH,
+           размеры (col_span × CELL_WIDTH, height_cells × CELL_HEIGHT)
+        4. Строим внутреннее дерево stretchable для каждого блока отдельно
+        5. compute_layout() на каждом блоке → wrap текста
+        6. Собираем BlockGeometry с абсолютными координатами
     """
-    root, ctxs, _header, _footer = _build_slide_tree(layout_plan, strategy)
-    root.compute_layout()
+    auto_shift = _compute_auto_shift_cells(layout_plan)
+    if auto_shift > 0:
+        logger.info(
+            f"Слайд {layout_plan.slide_index}: авто-центрирование "
+            f"со сдвигом {auto_shift} клеток вниз"
+        )
 
-    # Overflow check
-    max_bottom = 0.0
-    for ctx in ctxs:
-        _, y, _, h = _abs_box(ctx.node)
-        max_bottom = max(max_bottom, y + h)
+    blocks_out: list[BlockGeometry] = []
 
-    overflow = max_bottom - (SLIDE_H - MARGIN_V)
-    if overflow > 0:
-        logger.warning(f"Overflow {overflow:.0f}px — пересобираю с компактными gaps")
-        _set_compact_mode(True)
-        try:
-            root, ctxs, _header, _footer = _build_slide_tree(
-                layout_plan, strategy
-            )
-            root.compute_layout()
+    for row in layout_plan.rows:
+        row_y_px = SLIDE_MARGIN_Y + (row.row_start_cell + auto_shift) * CELL_HEIGHT
 
-            max_bottom = 0.0
-            for ctx in ctxs:
-                _, y, _, h = _abs_box(ctx.node)
-                max_bottom = max(max_bottom, y + h)
-            overflow2 = max_bottom - (SLIDE_H - MARGIN_V)
-            if overflow2 > 0:
-                logger.warning(
-                    f"Всё ещё overflow {overflow2:.0f}px после compact mode"
+        for block in row.blocks:
+            block_x_px = SLIDE_MARGIN_X + block.col_start * CELL_WIDTH
+            block_w_px = block.col_span * CELL_WIDTH
+            block_h_px = block.height_cells * CELL_HEIGHT
+
+            ctx = _build_block(block)
+            ctx.row_x = block_x_px
+            ctx.row_y = row_y_px
+            ctx.block_w = block_w_px
+            ctx.block_h = block_h_px
+
+            try:
+                ctx.node.compute_layout()
+            except Exception as e:
+                logger.error(
+                    f"Ошибка compute_layout для блока {block.block_id}: {e}"
                 )
-        finally:
-            _set_compact_mode(False)
+                raise
 
-    blocks: list[BlockGeometry] = []
-    for ctx in ctxs:
-        abs_box = _abs_box(ctx.node)
-        x, y, w, h = abs_box
+            rendered = _collect_rendered_texts(ctx, block_x_px, row_y_px)
 
-        rendered = _collect_rendered_texts(ctx, abs_box)
-
-        blocks.append(BlockGeometry(
-            block_id=ctx.block.block_id,
-            x=round(x, 1),
-            y=round(y, 1),
-            w=round(w, 1),
-            h=round(h, 1),
-            object_type=ctx.block.semantic_type,
-            content=ctx.block.content,
-            render=ctx.block.render,
-            visual_subtype=ctx.block.visual_subtype,
-            rendered_texts=rendered,
-        ))
+            blocks_out.append(BlockGeometry(
+                block_id=block.block_id,
+                x=round(block_x_px, 1),
+                y=round(row_y_px, 1),
+                w=round(block_w_px, 1),
+                h=round(block_h_px, 1),
+                object_type=block.semantic_type,
+                content=block.content,
+                render=block.render,
+                visual_subtype=block.visual_subtype,
+                rendered_texts=rendered,
+            ))
 
     footer_out = layout_plan.footer if layout_plan.needs_footer else None
 
@@ -701,124 +577,12 @@ def compute_geometry(
         header_type=layout_plan.header_type,
         style_mode=layout_plan.style_mode,
         accent_color=strategy.accent_color,
-        blocks=blocks,
+        blocks=blocks_out,
         footer=footer_out,
     )
 
     logger.info(
         f"LayoutEngine v5: слайд {layout_plan.slide_index} → "
-        f"{len(blocks)} блоков"
+        f"{len(blocks_out)} блоков, auto_shift={auto_shift}"
     )
     return result
-
-
-# ── Smoke-test ───────────────────────────────────────────────
-
-if __name__ == "__main__":
-    import sys
-    from pathlib import Path
-    sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
-
-    logging.basicConfig(level=logging.INFO)
-
-    plan = LayoutPlanV5(
-        slide_index=0,
-        slide_role="content",
-        header_type="B",
-        style_mode="soft",
-        rows=[
-            GridRow(
-                row_id="r0",
-                row_lines=3,
-                blocks=[
-                    GridBlock(
-                        block_id="sb0", col_start=0, col_span=6,
-                        semantic_type="heading",
-                        content={"title": "Финансовые показатели", "subtitle": "2026 Q1"},
-                        height_strategy="hug",
-                    ),
-                    GridBlock(
-                        block_id="sb1", col_start=6, col_span=6,
-                        semantic_type="text",
-                        content={
-                            "title": "Итоги квартала",
-                            "bullet_points": [
-                                "Выручка выросла на 18% год к году",
-                                "Маржинальность EBITDA — 24%",
-                                "Запущены 3 новых продукта",
-                            ],
-                        },
-                        height_strategy="hug",
-                    ),
-                ],
-            ),
-        ],
-        total_lines=6,
-    )
-    strategy = PresentationStrategy(accent_color="#0066CC")
-
-    def show(label: str, p: LayoutPlanV5) -> None:
-        geo = compute_geometry(p, strategy)
-        logger.info(
-            f"\n══ {label} ══  слайд {geo.slide_index}: {len(geo.blocks)} блоков"
-        )
-        for b in geo.blocks:
-            logger.info(
-                f"  [{b.block_id}] {b.object_type}: "
-                f"x={b.x} y={b.y} w={b.w} h={b.h}"
-            )
-            for rt in b.rendered_texts:
-                first = rt.lines[0] if rt.lines else ""
-                logger.info(
-                    f"      {rt.role}: '{first[:40]}' ({len(rt.lines)} стр.) "
-                    f"at ({rt.x},{rt.y}) w={rt.w}"
-                )
-
-    show("Тест 1: heading + text/bullets", plan)
-
-    plan2 = LayoutPlanV5(
-        slide_index=1,
-        rows=[
-            GridRow(row_id="r0", row_lines=2, blocks=[
-                GridBlock(block_id="sb0", col_start=0, col_span=12,
-                    semantic_type="heading",
-                    content={"title": "Наши преимущества"}, height_strategy="hug"),
-            ]),
-            GridRow(row_id="r1", row_lines=6, blocks=[
-                GridBlock(block_id="sb1", col_start=0, col_span=4,
-                    semantic_type="card", height_strategy="fill",
-                    content={"cards": [{"number": "01", "title": "Скорость",
-                        "body": "Обработка за 2 секунды вместо 5 минут."}]}),
-                GridBlock(block_id="sb2", col_start=4, col_span=4,
-                    semantic_type="card", height_strategy="fill",
-                    content={"cards": [{"number": "02", "title": "Точность",
-                        "body": "98% попаданий по бенчмарку GLUE."}]}),
-                GridBlock(block_id="sb3", col_start=8, col_span=4,
-                    semantic_type="card", height_strategy="fill",
-                    content={"cards": [{"number": "03", "title": "Масштаб",
-                        "body": "От 10 до 10 000 документов в день."}]}),
-            ]),
-        ],
-        total_lines=8,
-    )
-    show("Тест 2: 3 карточки в ряд", plan2)
-
-    plan3 = LayoutPlanV5(
-        slide_index=2,
-        rows=[
-            GridRow(row_id="r0", row_lines=8, blocks=[
-                GridBlock(block_id="sb0", col_start=0, col_span=12,
-                    semantic_type="table", height_strategy="hug",
-                    content={
-                        "headers": ["Метрика", "2024", "2025", "Δ"],
-                        "rows": [
-                            ["Выручка, млн ₽", "120", "182", "+52%"],
-                            ["EBITDA, млн ₽", "18", "44", "+144%"],
-                            ["Клиенты", "230", "410", "+78%"],
-                        ],
-                    }),
-            ]),
-        ],
-        total_lines=8,
-    )
-    show("Тест 3: таблица", plan3)

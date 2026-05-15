@@ -14,8 +14,10 @@ import logging
 import sys
 import time
 from pathlib import Path
+from postprocess.validator import validate, dump_chosen, ValidationResult
 
 from core.config import TEMP_DIR
+from core.config import TEMP_DIR, MAX_VALIDATOR_RETRIES
 from models.contracts import (
     LayoutPlanV5,
     GridBlock,
@@ -91,18 +93,27 @@ def _enrich_layout(
     Копирует content, semantic_type, visual_subtype из SemanticSlide
     в каждый GridBlock по совпадению block_id.
 
-    LLM (Spatial Architect) возвращает только layout-решения
-    (col_start, col_span, height_strategy, render).
-    Контент подставляет Python — это безопаснее и экономит токены.
+    Спейсеры (block_id начинается с 'spacer_') пропускаются — это
+    декоративные блоки от Architect для дополнения col_span до 12.
+
+    LLM не возвращает контент — только layout (row_start_cell, col_start,
+    col_span, height_cells, render). Контент подставляет Python.
     """
-    # Индекс: block_id → SemanticBlock
     sem_index: dict[str, SemanticBlock] = {
         b.block_id: b for b in semantic.blocks
     }
 
     enriched_count = 0
+    spacer_count = 0
     for row in layout.rows:
         for block in row.blocks:
+            if block.block_id.startswith("spacer_"):
+                block.semantic_type = "text"
+                block.content = {}
+                block.visual_subtype = None
+                spacer_count += 1
+                continue
+
             sem = sem_index.get(block.block_id)
             if sem is None:
                 logger.warning(
@@ -117,8 +128,8 @@ def _enrich_layout(
             enriched_count += 1
 
     logger.info(
-        f"Слайд {layout.slide_index}: обогащено {enriched_count} блоков "
-        f"из {len(sem_index)} семантических"
+        f"Слайд {layout.slide_index}: обогащено {enriched_count} блоков, "
+        f"спейсеров {spacer_count}, всего семантических {len(sem_index)}"
     )
     return layout
 
@@ -126,6 +137,89 @@ def _enrich_layout(
 # ═══════════════════════════════════════════════════════════════
 #  ОДИН СЛАЙД — цепочка v5
 # ═══════════════════════════════════════════════════════════════
+
+def _design_with_retry(
+    semantic: SemanticSlide,
+    strategy: PresentationStrategy,
+    design_context: str,
+    slide_index: int,
+) -> tuple[LayoutPlanV5, ValidationResult]:
+    """
+    Цикл Architect → Enrich → Validate с feedback.
+
+    Делает до MAX_VALIDATOR_RETRIES + 1 попыток. Если ни одна не валидна,
+    возвращает лучший вариант по минимальному penalty.
+    Каждая попытка дампится через validator.
+
+    Returns:
+        (best_plan, best_result) — лучший план и его валидация.
+    """
+    from agents.spatial_architect import design_slide
+
+    proposed_spans: dict[str, int] = {
+        b.block_id: b.proposed_col_span for b in semantic.blocks
+    }
+
+    attempts: list[tuple[LayoutPlanV5, ValidationResult]] = []
+    feedback: str | None = None
+    max_attempts = MAX_VALIDATOR_RETRIES + 1
+
+    for attempt in range(max_attempts):
+        try:
+            plan = design_slide(
+                semantic_slide=semantic,
+                strategy=strategy,
+                design_context=design_context,
+                slide_index=slide_index,
+                feedback=feedback,
+            )
+        except Exception as e:
+            logger.error(
+                f"Слайд {slide_index} попытка {attempt}: Architect упал: {e}"
+            )
+            if attempts:
+                break
+            raise
+
+        plan = _enrich_layout(plan, semantic)
+        result = validate(
+            plan=plan,
+            slide_index=slide_index,
+            attempt=attempt,
+            proposed_spans=proposed_spans,
+        )
+        attempts.append((plan, result))
+
+        if result.is_valid:
+            logger.info(
+                f"Слайд {slide_index}: валидный план с попытки {attempt}"
+            )
+            break
+
+        if result.changed_col_spans:
+            logger.warning(
+                f"Слайд {slide_index} попытка {attempt}: Architect изменил "
+                f"col_span у {list(result.changed_col_spans.keys())} — "
+                f"height_cells может быть неточным "
+                f"(пере-измерение через tool в Фазе 4.9.2)"
+            )
+
+        feedback = result.feedback
+        logger.info(
+            f"Слайд {slide_index}: попытка {attempt} невалидна "
+            f"(penalty={result.penalty}), retry..."
+        )
+
+    best_plan, best_result = min(attempts, key=lambda pr: pr[1].penalty)
+    if not best_result.is_valid:
+        logger.warning(
+            f"Слайд {slide_index}: все {len(attempts)} попыток невалидны, "
+            f"выбран лучший penalty={best_result.penalty}"
+        )
+
+    dump_chosen(best_plan, best_result, slide_index)
+    return best_plan, best_result
+
 
 def _process_slide(
     slide_index: int,
@@ -172,20 +266,25 @@ def _process_slide(
         strategy=strategy,
     )
 
-    # ── Слой 1: Spatial Architect ───────────────────────────────
+    # ── Слой 1: Spatial Architect → Enrich → Validator (retry) ──
     layout: LayoutPlanV5 | None = (
         _load_cache(slide_index, "layout", LayoutPlanV5) if use_cache else None
     )
     if layout:
         logger.info(f"[CACHE] Layout слайда {slide_index}")
     else:
-        layout = design_slide(
-            semantic_slide=semantic,
+        layout, val_result = _design_with_retry(
+            semantic=semantic,
             strategy=strategy,
             design_context=design_context,
             slide_index=slide_index,
         )
-        _save_cache(slide_index, "layout", layout)
+        if val_result.is_valid:
+            _save_cache(slide_index, "layout", layout)
+        else:
+            logger.info(
+                f"Слайд {slide_index}: невалидный план не кэшируется"
+            )
 
     logger.info(
         f"Слайд {slide_index}: {len(layout.rows)} рядов, "

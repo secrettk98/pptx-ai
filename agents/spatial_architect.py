@@ -1,17 +1,24 @@
 """
-Spatial Architect (Слой 1) — принимает SemanticSlide + design_context,
-мыслит в 12-колоночной сетке и возвращает LayoutPlanV5.
-Модель: Gemini 2.5 Flash.
+Spatial Architect (Слой 1) — финализирует layout в клеточной сетке 12×27.
+
+Получает SemanticSlide с точными height_cells (измеренными Semantic через tool),
+дизайн-контекст и PNG пустой сетки 12×27. Возвращает LayoutPlanV5 с явными
+координатами row_start_cell / col_start / col_span / height_cells для каждого блока.
+
+При retry получает feedback от Validator с описанием проблем предыдущей попытки.
+Модель: Gemini 2.5 Pro (multimodal).
 """
 
 import json
 import logging
 import re
 from pathlib import Path
+from typing import Optional
 
 from core.config import MODEL_DESIGNER, PROMPTS_DIR
 from core.llm.client import call_llm
 from core.llm.normalize import normalize_for_model
+from core.utils.grid_visualizer import get_grid_image_path
 from models.contracts import (
     GridBlock,
     GridRow,
@@ -34,31 +41,53 @@ def _load_system_prompt() -> str:
         raise
 
 
-def _build_user_message(
-    semantic_slide: SemanticSlide,
-    strategy: PresentationStrategy,
-    design_context: str,
-) -> str:
-    """Формирует user-сообщение для Architect."""
-    blocks_summary = [
+def _build_blocks_summary(semantic_slide: SemanticSlide) -> list[dict]:
+    """Сводка блоков для LLM — без content, только метаданные и размеры."""
+    return [
         {
             "block_id": b.block_id,
             "semantic_type": b.semantic_type,
             "visual_subtype": b.visual_subtype,
-            "line_budget": b.line_budget,
-            "content_keys": list(b.content.keys()),
+            "priority": b.priority,
+            "proposed_col_span": b.proposed_col_span,
+            "height_cells": b.height_cells,
         }
         for b in semantic_slide.blocks
     ]
-    return (
-        f"# SLIDE {semantic_slide.slide_index}\n\n"
-        f"## Strategy\n"
-        f"header_type={strategy.header_type}, style_mode={strategy.style_mode}, "
-        f"accent={strategy.accent_color}, mode={strategy.presentation_mode}\n\n"
-        f"## Semantic blocks ({semantic_slide.total_lines} lines total)\n"
-        f"{json.dumps(blocks_summary, ensure_ascii=False, indent=2)}\n\n"
-        f"## Design context\n{design_context}"
-    )
+
+
+def _build_user_message(
+    semantic_slide: SemanticSlide,
+    strategy: PresentationStrategy,
+    design_context: str,
+    feedback: Optional[str],
+) -> str:
+    """Формирует user-сообщение для Architect."""
+    blocks_summary = _build_blocks_summary(semantic_slide)
+    parts: list[str] = [
+        f"# SLIDE {semantic_slide.slide_index}",
+        "",
+        "## Strategy",
+        (
+            f"header_type={strategy.header_type}, "
+            f"style_mode={strategy.style_mode}, "
+            f"accent={strategy.accent_color}, "
+            f"mode={strategy.presentation_mode}"
+        ),
+        "",
+        f"## Semantic blocks (total_height_cells={semantic_slide.total_height_cells})",
+        json.dumps(blocks_summary, ensure_ascii=False, indent=2),
+        "",
+        "## Design context",
+        design_context,
+    ]
+    if feedback:
+        parts.extend([
+            "",
+            "## Validator feedback (previous attempt failed)",
+            feedback,
+        ])
+    return "\n".join(parts)
 
 
 def _strip_thinking(raw: str) -> str:
@@ -80,26 +109,35 @@ def _parse_rows(rows_raw: list[dict], slide_index: int) -> list[GridRow]:
             try:
                 b_norm = normalize_for_model(b, GridBlock)
                 if not b_norm.get("block_id"):
-                    b_norm["block_id"] = f"sb{bi}"
+                    logger.warning(
+                        f"Слайд {slide_index}, ряд {ri}, блок {bi}: "
+                        f"пустой block_id — пропуск"
+                    )
+                    continue
                 blocks.append(GridBlock(**b_norm))
             except Exception as e:
                 logger.warning(
                     f"Слайд {slide_index}, ряд {ri}, блок {bi} пропущен: {e}"
                 )
 
-        # Проверка суммы col_span
         col_sum = sum(b.col_span for b in blocks)
         if col_sum != 12:
             logger.warning(
                 f"Слайд {slide_index}, ряд {row_id}: "
-                f"col_span сумма = {col_sum} (ожидалось 12)"
+                f"сумма col_span = {col_sum} (ожидалось 12)"
             )
+
+        row_height = (
+            max((b.height_cells for b in blocks), default=0) if blocks else 0
+        )
+        row_start = row_data.get("row_start_cell", 0)
 
         rows.append(
             GridRow(
                 row_id=row_id,
+                row_start_cell=row_start,
+                height_cells=row_data.get("height_cells", row_height),
                 blocks=blocks,
-                row_lines=row_data.get("row_lines", 0),
             )
         )
     return rows
@@ -120,7 +158,9 @@ def _parse_response(raw: str, slide_index: int) -> LayoutPlanV5:
     rows = _parse_rows(data.pop("rows", []), slide_index)
     data_norm = normalize_for_model(data, LayoutPlanV5)
 
-    total_lines = data_norm.get("total_lines") or sum(r.row_lines for r in rows)
+    total_height = data_norm.get("total_height_cells") or sum(
+        r.height_cells for r in rows
+    )
 
     return LayoutPlanV5(
         slide_index=slide_index,
@@ -130,7 +170,7 @@ def _parse_response(raw: str, slide_index: int) -> LayoutPlanV5:
         needs_footer=data_norm.get("needs_footer", False),
         composition_schema=data_norm.get("composition_schema", "A"),
         rows=rows,
-        total_lines=total_lines,
+        total_height_cells=total_height,
         design_notes=data_norm.get("design_notes", ""),
     )
 
@@ -140,30 +180,44 @@ def design_slide(
     strategy: PresentationStrategy,
     design_context: str,
     slide_index: int,
+    feedback: Optional[str] = None,
 ) -> LayoutPlanV5:
     """
-    Слой 1: превращает SemanticSlide в LayoutPlanV5.
+    Слой 1: финализирует layout в клеточной сетке 12×27.
 
     Args:
-        semantic_slide: выход Semantic Editor
+        semantic_slide: выход Semantic Editor (с точными height_cells)
         strategy:       стратегия презентации
-        design_context: строка из Prompt Assembler
+        design_context: строка от Prompt Assembler
         slide_index:    индекс слайда
+        feedback:       если retry — текст от Validator с описанием проблем
 
     Returns:
-        LayoutPlanV5 с list[GridRow]
+        LayoutPlanV5 с list[GridRow], каждый GridBlock имеет
+        row_start_cell, col_start, col_span, height_cells.
     """
-    logger.info(f"SpatialArchitect: слайд {slide_index}")
+    logger.info(
+        f"SpatialArchitect: слайд {slide_index}"
+        + (" (retry с feedback)" if feedback else "")
+    )
 
     system_prompt = _load_system_prompt()
-    user_msg = _build_user_message(semantic_slide, strategy, design_context)
+    user_msg = _build_user_message(
+        semantic_slide, strategy, design_context, feedback
+    )
+
+    try:
+        grid_image_path = get_grid_image_path()
+    except (OSError, ValueError) as e:
+        logger.error(f"Не удалось получить PNG сетки: {e}")
+        raise
 
     try:
         raw = call_llm(
             prompt=user_msg,
             model_name=MODEL_DESIGNER,
-            image_path=None,
-            json_mode=False,  # ответ содержит <thinking>, потом JSON
+            image_path=str(grid_image_path),
+            json_mode=False,
             system_instruction=system_prompt,
         )
     except Exception as e:
@@ -174,6 +228,6 @@ def design_slide(
     logger.info(
         f"SpatialArchitect слайд {slide_index}: "
         f"{len(result.rows)} рядов, role={result.slide_role}, "
-        f"lines={result.total_lines}"
+        f"total_height_cells={result.total_height_cells}"
     )
     return result
