@@ -26,7 +26,7 @@ logger = logging.getLogger(__name__)
 # ── Константы слайда ──────────────────────────────────────────
 SLIDE_W = 1280
 SLIDE_H = 720
-FONT = "Inter, Google Sans, Arial, sans-serif"
+FONT = "Arial, sans-serif"
 
 # ── Цвета ─────────────────────────────────────────────────────
 C_BG = "#FFFFFF"
@@ -104,7 +104,8 @@ def _render_text_lines(rt: RenderedText, accent: str) -> list[str]:
 
     # Буллеты: рисуем точку перед первой строкой
     is_bullet = rt.role == "bullet"
-    bullet_offset = 18  # отступ текста от точки
+    from core.config import BULLET_TEXT_OFFSET_PX
+    bullet_offset = BULLET_TEXT_OFFSET_PX
 
     # Вертикальное центрирование для ячеек таблицы
     start_y = rt.y  # layout engine уже отцентрировал

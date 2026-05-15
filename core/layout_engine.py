@@ -1,15 +1,15 @@
-"""LayoutEngine v5 — клеточная сетка 12×27 → точные пиксели.
+"""LayoutEngine v5.1 — детерминированная раскладка без stretchable.
 
-Превращает LayoutPlanV5 (GridRow/GridBlock от Spatial Architect)
-в SlideGeometry с пиксельными координатами и готовыми строками для SVG Renderer.
+Превращает LayoutPlanV5 (GridRow/GridBlock от Spatial Architect) в SlideGeometry
+с пиксельными координатами и готовыми строками текста для SVG Renderer.
 
-Архитектура:
-    - Ряды позиционируются absolute по row_start_cell × CELL_HEIGHT
-    - Внутри ряда блоки получают фиксированную ширину col_span × CELL_WIDTH
-    - stretchable используется только для внутренней структуры блоков
-      (wrap текста, карточки, ячейки таблиц)
-    - Авто-центрирование: если Architect прижал контент к верху и есть запас,
-      все ряды сдвигаются на (GRID_ROWS - total_used) // 2 клеток вниз
+Принципы:
+    - Размер блока известен заранее: col_span × CELL_WIDTH, height_cells × CELL_HEIGHT
+    - Внутри блока — простая арифметика: курсор по Y, wrap текста по фиксированной
+      ширине inner_w = block_w - 2*CARD_PADDING_PX
+    - Никаких flex/measure callbacks — wrap делается один раз через text_metrics.wrap()
+    - Координаты, переданные в RenderedText, синхронны с теми, что использовались
+      для wrap → svg_renderer рендерит ровно то, что было измерено
 
 Контракт: compute_geometry(plan, strategy) → SlideGeometry.
 """
@@ -17,39 +17,27 @@
 from __future__ import annotations
 
 import logging
-from dataclasses import dataclass, field
-from math import isnan
-from typing import Optional
-
-from stretchable import Node, Edge
-from stretchable.style import AUTO
-from stretchable.style.geometry.length import Scale
-from stretchable.style.geometry.size import SizePoints
-from stretchable.style.props import FlexDirection, AlignItems
+from typing import Callable
 
 from core.config import (
-    SLIDE_WIDTH,
-    SLIDE_HEIGHT,
     SLIDE_MARGIN_X,
     SLIDE_MARGIN_Y,
-    WORKING_AREA_W,
-    WORKING_AREA_H,
     CELL_WIDTH,
     CELL_HEIGHT,
-    GRID_COLS,
     GRID_ROWS,
-    ROW_GAP_CELLS,
+    CARD_PADDING_PX,
+    MIN_COL_WIDTH_PX,
+    BULLET_TEXT_OFFSET_PX,
 )
 from models.contracts import (
     LayoutPlanV5,
-    GridRow,
     GridBlock,
     SlideGeometry,
     BlockGeometry,
     RenderedText,
     PresentationStrategy,
 )
-from core.utils.text_metrics import measure_block, line_height
+from core.utils.text_metrics import measure, wrap, fit_height, line_height
 
 logger = logging.getLogger(__name__)
 
@@ -65,340 +53,15 @@ PT_CARD_BODY = 11
 PT_TBL_HEAD = 11
 PT_TBL_BODY = 10
 
-# ── Внутренние отступы блоков (px) ────────────────────────────
-PAD_CARD = 18
-PAD_TBL_X = 8
-PAD_TBL_Y = 6
-GAP_INTRA_BLOCK = 8        # вертикальный gap внутри блока между текстами
-GAP_CARDS = 12             # gap между карточками
-GAP_TABLE_ROW = 0          # gap между рядами таблицы (управляется padding)
-GAP_TABLE_COL = 0          # gap между колонками таблицы
-
-
-# ════════════════════════════════════════════════════════════
-#  КОНТЕЙНЕР: связь Node ↔ метаданные блока
-# ════════════════════════════════════════════════════════════
-
-@dataclass
-class BlockCtx:
-    """Контекст блока — связь stretchable Node и данных GridBlock."""
-    node: Node
-    block: GridBlock
-    text_specs: list[dict] = field(default_factory=list)
-    wrapper_nodes: list[dict] = field(default_factory=list)
-    # Абсолютные координаты ряда — выставляются на этапе сборки
-    row_x: float = 0.0
-    row_y: float = 0.0
-    block_w: float = 0.0
-    block_h: float = 0.0
-
-
-# ════════════════════════════════════════════════════════════
-#  ИЗМЕРИТЕЛЬ ТЕКСТА (measure_func для stretchable)
-# ════════════════════════════════════════════════════════════
-
-def _make_text_measure(text: str, size_pt: float, bold: bool = False):
-    """Фабрика measure-функции для текстового листового узла.
-
-    Возвращает width=available (не actual!) — это критично для wrap.
-    Если вернуть actual_w, Node займёт только нужную ширину, но при
-    повторном wrap-е в _collect_rendered_texts эта ширина окажется
-    меньше фактической и текст обрежется.
-    """
-    def measure(node, known_dimensions, available_space):
-        kw = known_dimensions.width.value
-        aw = available_space.width
-        if not isnan(kw):
-            w = float(kw)
-        elif aw.scale == Scale.POINTS and not isnan(aw.value):
-            w = float(aw.value)
-        else:
-            w = 10000.0
-        _, actual_h, _ = measure_block(text, w, size_pt=size_pt, bold=bold)
-        # Возвращаем width=w (доступную), а не actual_w — wrap должен
-        # происходить именно по этой ширине и в layout_engine, и в svg_renderer
-        return SizePoints(width=w, height=actual_h)
-    return measure
-
-
-# ════════════════════════════════════════════════════════════
-#  СТРОИТЕЛИ ВНУТРЕННЕЙ СТРУКТУРЫ БЛОКОВ
-#  Каждый builder создаёт корневой Node с фиксированными размерами слота
-#  (col_span × CELL_WIDTH, height_cells × CELL_HEIGHT) и наполняет внутренним
-#  контентом для wrap текста / распределения карточек / ячеек таблиц.
-# ════════════════════════════════════════════════════════════
-
-def _slot_node(block: GridBlock, gap: int = GAP_INTRA_BLOCK) -> Node:
-    """Корневой Node блока с фиксированным размером в пикселях."""
-    w = block.col_span * CELL_WIDTH
-    h = block.height_cells * CELL_HEIGHT
-    return Node(
-        size=(w, h),
-        flex_direction=FlexDirection.COLUMN,
-        gap=gap,
-        align_items=AlignItems.STRETCH,
-    )
-
-
-def _build_heading(block: GridBlock) -> BlockCtx:
-    """heading: title (24pt bold) + опц. subtitle (12pt) + акцентная линия."""
-    c = block.content or {}
-    title = (c.get("title") or "").strip()
-    subtitle = (c.get("subtitle") or "").strip()
-
-    container = _slot_node(block, gap=6)
-
-    text_specs: list[dict] = []
-
-    if title:
-        n = Node(measure=_make_text_measure(title, PT_HEAD, bold=True))
-        container.add(n)
-        text_specs.append({
-            "role": "title", "text": title,
-            "size_pt": PT_HEAD, "bold": True, "_node": n,
-        })
-
-    if subtitle:
-        n = Node(measure=_make_text_measure(subtitle, PT_SUB))
-        container.add(n)
-        text_specs.append({
-            "role": "subtitle", "text": subtitle,
-            "size_pt": PT_SUB, "bold": False, "_node": n,
-        })
-
-    line_node = Node(size=(60, 3))
-    container.add(line_node)
-    text_specs.append({
-        "role": "accent_line", "text": "",
-        "size_pt": 0, "bold": False, "_node": line_node,
-    })
-
-    return BlockCtx(node=container, block=block, text_specs=text_specs)
-
-
-def _build_text(block: GridBlock) -> BlockCtx:
-    """text: опц. title (15pt bold) + body или bullets (12pt)."""
-    c = block.content or {}
-    title = (c.get("title") or "").strip()
-    body = (c.get("body") or "").strip()
-    bullets = c.get("bullet_points") or []
-
-    container = _slot_node(block)
-    text_specs: list[dict] = []
-
-    if title:
-        n = Node(measure=_make_text_measure(title, PT_BTITLE, bold=True))
-        container.add(n)
-        text_specs.append({
-            "role": "title", "text": title,
-            "size_pt": PT_BTITLE, "bold": True, "_node": n,
-        })
-
-    if bullets:
-        for i, b in enumerate(bullets):
-            b = str(b).strip()
-            if not b:
-                continue
-            n = Node(measure=_make_text_measure(b, PT_BODY))
-            container.add(n)
-            text_specs.append({
-                "role": "bullet", "text": b,
-                "size_pt": PT_BODY, "bold": False, "_node": n,
-                "extra": {"bullet_index": i},
-            })
-    elif body:
-        n = Node(measure=_make_text_measure(body, PT_BODY))
-        container.add(n)
-        text_specs.append({
-            "role": "body", "text": body,
-            "size_pt": PT_BODY, "bold": False, "_node": n,
-        })
-
-    return BlockCtx(node=container, block=block, text_specs=text_specs)
-
-
-def _build_placeholder(block: GridBlock) -> BlockCtx:
-    """chart/visual — пустой слот заданного размера (рендер через external)."""
-    return BlockCtx(node=_slot_node(block), block=block, text_specs=[])
-
-
-def _build_card_inner(card: dict, card_index: int) -> tuple[Node, list[dict]]:
-    """Одна карточка — flex column с числом/иконкой + title + body."""
-    container = Node(
-        flex_direction=FlexDirection.COLUMN,
-        gap=6,
-        padding=PAD_CARD,
-        flex_grow=1.0,
-        flex_shrink=1.0,
-        flex_basis=0,
-        align_items=AlignItems.STRETCH,
-    )
-    specs: list[dict] = []
-
-    num = card.get("number")
-    if isinstance(num, str):
-        num = num.strip()
-    title = (card.get("title") or "").strip()
-    body = (card.get("body") or "").strip()
-    icon = card.get("icon")
-
-    if num:
-        n = Node(measure=_make_text_measure(str(num), PT_CARD_NUM, bold=True))
-        container.add(n)
-        specs.append({
-            "role": "card_number", "text": str(num),
-            "size_pt": PT_CARD_NUM, "bold": True, "_node": n,
-            "extra": {"card_index": card_index},
-        })
-    elif icon:
-        n = Node(size=(32, 32))
-        container.add(n)
-        specs.append({
-            "role": "card_icon", "text": str(icon),
-            "size_pt": PT_CARD_TITLE, "bold": True, "_node": n,
-            "extra": {"card_index": card_index, "icon_char": str(icon)[:1].upper()},
-        })
-
-    if title:
-        n = Node(measure=_make_text_measure(title, PT_CARD_TITLE, bold=True))
-        container.add(n)
-        specs.append({
-            "role": "card_title", "text": title,
-            "size_pt": PT_CARD_TITLE, "bold": True, "_node": n,
-            "extra": {"card_index": card_index},
-        })
-
-    if body:
-        n = Node(measure=_make_text_measure(body, PT_CARD_BODY))
-        container.add(n)
-        specs.append({
-            "role": "card_body", "text": body,
-            "size_pt": PT_CARD_BODY, "bold": False, "_node": n,
-            "extra": {"card_index": card_index},
-        })
-
-    return container, specs
-
-
-def _build_card(block: GridBlock) -> BlockCtx:
-    """card-блок: контейнер + одна или несколько карточек внутри."""
-    c = block.content or {}
-    cards = c.get("cards") or []
-
-    container = _slot_node(block, gap=GAP_CARDS)
-
-    text_specs: list[dict] = []
-    wrapper_nodes: list[dict] = []
-
-    if not cards:
-        return BlockCtx(node=container, block=block, text_specs=[])
-
-    for i, card in enumerate(cards):
-        card_node, specs = _build_card_inner(card, card_index=i)
-        container.add(card_node)
-        text_specs.extend(specs)
-        wrapper_nodes.append({"kind": "card", "index": i, "node": card_node})
-
-    return BlockCtx(
-        node=container, block=block,
-        text_specs=text_specs, wrapper_nodes=wrapper_nodes,
-    )
-
-
-def _build_table(block: GridBlock) -> BlockCtx:
-    """Таблица: flex column из ряда заголовков + рядов данных."""
-    c = block.content or {}
-    headers = c.get("headers") or []
-    rows = c.get("rows") or []
-
-    n_cols = max(len(headers), max((len(r) for r in rows), default=0), 1)
-    headers = list(headers) + [""] * (n_cols - len(headers))
-    norm_rows: list[list[str]] = []
-    for r in rows:
-        rl = list(r) + [""] * (n_cols - len(r))
-        norm_rows.append(rl[:n_cols])
-
-    def col_weight(j: int) -> float:
-        from core.utils.text_metrics import measure as _measure
-        samples = [str(headers[j])] + [str(r[j]) for r in norm_rows[:20]]
-        return max((_measure(s, PT_TBL_BODY) for s in samples), default=40.0)
-
-    raw_weights = [col_weight(j) for j in range(n_cols)]
-    sorted_w = sorted(raw_weights)
-    median = sorted_w[len(sorted_w) // 2]
-    cap = max(120.0, median * 3.0)
-    weights = [min(cap, max(60.0, w)) for w in raw_weights]
-
-    container = _slot_node(block, gap=GAP_TABLE_ROW)
-
-    text_specs: list[dict] = []
-    wrapper_nodes: list[dict] = []
-
-    def build_row(
-        cells: list[str], is_header: bool, row_idx: int
-    ) -> tuple[Node, list[dict]]:
-        size_pt = PT_TBL_HEAD if is_header else PT_TBL_BODY
-        bold = is_header
-        cell_nodes: list[dict] = []
-        row_node = Node(
-            flex_direction=FlexDirection.ROW,
-            gap=GAP_TABLE_COL,
-            align_items=AlignItems.STRETCH,
-            size=(AUTO, AUTO),
-        )
-        for j, val in enumerate(cells):
-            val = str(val).strip()
-            cell = Node(
-                flex_grow=weights[j],
-                flex_shrink=1.0,
-                flex_basis=0,
-                padding=(PAD_TBL_Y, PAD_TBL_X, PAD_TBL_Y, PAD_TBL_X),
-            )
-            if val:
-                tnode = Node(measure=_make_text_measure(val, size_pt, bold=bold))
-                cell.add(tnode)
-                text_specs.append({
-                    "role": "cell_header" if is_header else "cell_body",
-                    "text": val, "size_pt": size_pt, "bold": bold, "_node": tnode,
-                    "extra": {"row": row_idx, "col": j, "is_header": is_header},
-                })
-            row_node.add(cell)
-            cell_nodes.append({
-                "kind": "cell", "row": row_idx, "col": j, "node": cell,
-            })
-        return row_node, cell_nodes
-
-    if headers:
-        rn, cn = build_row(headers, is_header=True, row_idx=-1)
-        container.add(rn)
-        wrapper_nodes.extend(cn)
-    for i, r in enumerate(norm_rows):
-        rn, cn = build_row(r, is_header=False, row_idx=i)
-        container.add(rn)
-        wrapper_nodes.extend(cn)
-
-    return BlockCtx(
-        node=container, block=block,
-        text_specs=text_specs, wrapper_nodes=wrapper_nodes,
-    )
-
-
-# ── Реестр строителей ─────────────────────────────────────────
-
-_BUILDERS: dict = {
-    "heading": _build_heading,
-    "text": _build_text,
-    "card": _build_card,
-    "table": _build_table,
-    "chart": _build_placeholder,
-    "visual": _build_placeholder,
-}
-
-
-def _build_block(block: GridBlock) -> BlockCtx:
-    """Выбирает строителя по semantic_type блока."""
-    builder = _BUILDERS.get(block.semantic_type, _build_placeholder)
-    return builder(block)
+# ── Внутренние отступы и gap'ы (px) ──────────────────────────
+PAD_CARD = 18                  # внутренний padding одной карточки
+PAD_TBL_X = 8                  # горизонтальный padding ячейки таблицы
+PAD_TBL_Y = 6                  # вертикальный padding ячейки таблицы
+GAP_INTRA_BLOCK = 8            # gap между элементами внутри текстового блока
+GAP_CARDS = 12                 # gap между карточками
+GAP_HEADING_ELEMENTS = 6       # gap между title/subtitle/accent_line
+ACCENT_LINE_W = 60             # длина акцентной линии heading
+ACCENT_LINE_H = 3              # толщина акцентной линии
 
 
 # ════════════════════════════════════════════════════════════
@@ -406,11 +69,7 @@ def _build_block(block: GridBlock) -> BlockCtx:
 # ════════════════════════════════════════════════════════════
 
 def _compute_auto_shift_cells(plan: LayoutPlanV5) -> int:
-    """Если контент прижат к верху и есть запас — центрируем по вертикали.
-
-    Возвращает количество клеток, на которое нужно сдвинуть все ряды вниз.
-    Если Architect уже расставил с offset'ом (min row_start_cell > 0) — 0.
-    """
+    """Если контент прижат к верху и есть запас — центрируем по вертикали."""
     if not plan.rows:
         return 0
     min_start = min(r.row_start_cell for r in plan.rows)
@@ -423,91 +82,441 @@ def _compute_auto_shift_cells(plan: LayoutPlanV5) -> int:
 
 
 # ════════════════════════════════════════════════════════════
-#  ВЫЧИСЛЕНИЕ АБСОЛЮТНЫХ КООРДИНАТ
+#  ФАБРИКА RenderedText
 # ════════════════════════════════════════════════════════════
 
-def _abs_box_within(node: Node) -> tuple[float, float, float, float]:
-    """Относительные координаты узла в пределах своего поддерева."""
-    x, y = 0.0, 0.0
-    cur = node
-    while cur is not None and cur.parent is not None:
-        b = cur.get_box(Edge.BORDER)
-        x += b.x
-        y += b.y
-        cur = cur.parent
-    b_self = node.get_box(Edge.BORDER)
-    return x, y, b_self.width, b_self.height
+def _make_rendered_text(
+    role: str,
+    text: str,
+    x: float,
+    y: float,
+    w: float,
+    size_pt: float,
+    bold: bool = False,
+    extra: dict | None = None,
+) -> RenderedText:
+    """Делает wrap текста и упаковывает в RenderedText с реальной высотой."""
+    lines = wrap(text, w, size_pt=size_pt, bold=bold) if text else []
+    h = fit_height(lines, size_pt=size_pt) if lines else 0.0
+    return RenderedText(
+        role=role,
+        lines=lines,
+        size_pt=size_pt,
+        bold=bold,
+        x=round(x, 1),
+        y=round(y, 1),
+        w=round(w, 1),
+        h=round(h, 1),
+        extra=extra or {},
+    )
 
 
-def _collect_rendered_texts(
-    ctx: BlockCtx,
-    block_origin_x: float,
-    block_origin_y: float,
+# ════════════════════════════════════════════════════════════
+#  БЛОК: heading
+# ════════════════════════════════════════════════════════════
+
+def _layout_heading(
+    block: GridBlock, x: float, y: float, w: float, h: float
 ) -> list[RenderedText]:
-    """Считает абс. координаты текстов в блоке и делает финальный wrap."""
+    """heading: title (24pt bold) + опц. subtitle (12pt) + акцентная линия."""
+    c = block.content or {}
+    title = (c.get("title") or "").strip()
+    subtitle = (c.get("subtitle") or "").strip()
+
+    inner_x = x + CARD_PADDING_PX
+    inner_y = y + CARD_PADDING_PX
+    inner_w = w - 2 * CARD_PADDING_PX
+
     out: list[RenderedText] = []
+    cur_y = inner_y
 
-    for spec in ctx.text_specs:
-        node: Node = spec["_node"]
-        rx, ry, rw, rh = _abs_box_within(node)
-        ax = block_origin_x + rx
-        ay = block_origin_y + ry
-
-        _, _, lines = measure_block(
-            spec["text"], rw, size_pt=spec["size_pt"], bold=spec["bold"]
+    if title:
+        rt = _make_rendered_text(
+            "title", title, inner_x, cur_y, inner_w, PT_HEAD, bold=True
         )
+        out.append(rt)
+        cur_y += rt.h + GAP_HEADING_ELEMENTS
 
-        out.append(RenderedText(
-            role=spec["role"],
-            lines=lines,
-            size_pt=spec["size_pt"],
-            bold=spec["bold"],
-            x=round(ax, 1),
-            y=round(ay, 1),
-            w=round(rw, 1),
-            h=round(rh, 1),
-            extra=spec.get("extra", {}),
-        ))
+    if subtitle:
+        rt = _make_rendered_text(
+            "subtitle", subtitle, inner_x, cur_y, inner_w, PT_SUB, bold=False
+        )
+        out.append(rt)
+        cur_y += rt.h + GAP_HEADING_ELEMENTS
 
-    if ctx.wrapper_nodes:
-        wrappers: dict[str, tuple[float, float, float, float]] = {}
-        for wn in ctx.wrapper_nodes:
-            key = (
-                f"{wn['kind']}_{wn.get('index', '')}_"
-                f"{wn.get('row', '')}_{wn.get('col', '')}"
-            )
-            rx, ry, rw, rh = _abs_box_within(wn["node"])
-            wrappers[key] = (
-                block_origin_x + rx, block_origin_y + ry, rw, rh
-            )
-
-        for rt in out:
-            if rt.role.startswith("card_"):
-                ci = rt.extra.get("card_index")
-                if ci is not None:
-                    key = f"card_{ci}__"
-                    if key in wrappers:
-                        wx, wy, ww, wh = wrappers[key]
-                        rt.extra["card_x"] = round(wx, 1)
-                        rt.extra["card_y"] = round(wy, 1)
-                        rt.extra["card_w"] = round(ww, 1)
-                        rt.extra["card_h"] = round(wh, 1)
-            elif rt.role in ("cell_header", "cell_body"):
-                row = rt.extra.get("row")
-                col = rt.extra.get("col")
-                if row is not None and col is not None:
-                    key = f"cell__{row}_{col}"
-                    if key in wrappers:
-                        wx, wy, ww, wh = wrappers[key]
-                        rt.extra["cell_x"] = round(wx, 1)
-                        rt.extra["cell_y"] = round(wy, 1)
-                        rt.extra["cell_w"] = round(ww, 1)
-                        rt.extra["cell_h"] = round(wh, 1)
-                        text_h = len(rt.lines) * line_height(rt.size_pt)
-                        if wh > text_h:
-                            rt.y = round(wy + (wh - text_h) / 2, 1)
+    # Акцентная линия — не текст, но проходит через RenderedText с w/h
+    out.append(RenderedText(
+        role="accent_line",
+        lines=[],
+        size_pt=0,
+        bold=False,
+        x=round(inner_x, 1),
+        y=round(cur_y, 1),
+        w=float(ACCENT_LINE_W),
+        h=float(ACCENT_LINE_H),
+        extra={},
+    ))
 
     return out
+
+
+# ════════════════════════════════════════════════════════════
+#  БЛОК: text
+# ════════════════════════════════════════════════════════════
+
+def _layout_text(
+    block: GridBlock, x: float, y: float, w: float, h: float
+) -> list[RenderedText]:
+    """text: опц. title (15pt bold) + bullets (12pt) или body (12pt)."""
+    c = block.content or {}
+    title = (c.get("title") or "").strip()
+    body = (c.get("body") or "").strip()
+    bullets = c.get("bullet_points") or []
+
+    inner_x = x + CARD_PADDING_PX
+    inner_y = y + CARD_PADDING_PX
+    inner_w = w - 2 * CARD_PADDING_PX
+
+    out: list[RenderedText] = []
+    cur_y = inner_y
+
+    if title:
+        rt = _make_rendered_text(
+            "title", title, inner_x, cur_y, inner_w, PT_BTITLE, bold=True
+        )
+        out.append(rt)
+        cur_y += rt.h + GAP_INTRA_BLOCK
+
+    if bullets:
+        bullet_w = inner_w - BULLET_TEXT_OFFSET_PX
+        for i, b in enumerate(bullets):
+            b = str(b).strip()
+            if not b:
+                continue
+            rt = _make_rendered_text(
+                "bullet", b, inner_x, cur_y, bullet_w, PT_BODY, bold=False,
+                extra={"bullet_index": i},
+            )
+            out.append(rt)
+            cur_y += rt.h + GAP_INTRA_BLOCK
+    elif body:
+        rt = _make_rendered_text(
+            "body", body, inner_x, cur_y, inner_w, PT_BODY, bold=False
+        )
+        out.append(rt)
+
+    return out
+
+
+# ════════════════════════════════════════════════════════════
+#  БЛОК: card
+# ════════════════════════════════════════════════════════════
+
+def _layout_card_inner(
+    card: dict, card_index: int,
+    cx: float, cy: float, cw: float, ch: float,
+) -> list[RenderedText]:
+    """Содержимое одной карточки: number/icon → title → body."""
+    inner_x = cx + PAD_CARD
+    inner_y = cy + PAD_CARD
+    inner_w = cw - 2 * PAD_CARD
+
+    out: list[RenderedText] = []
+    cur_y = inner_y
+
+    num = card.get("number")
+    if isinstance(num, str):
+        num = num.strip()
+    title = (card.get("title") or "").strip()
+    body = (card.get("body") or "").strip()
+    icon = card.get("icon")
+
+    # Фон карточки прокидываем через extra первого же элемента
+    common_extra: dict = {
+        "card_index": card_index,
+        "card_x": round(cx, 1),
+        "card_y": round(cy, 1),
+        "card_w": round(cw, 1),
+        "card_h": round(ch, 1),
+    }
+
+    if num:
+        rt = _make_rendered_text(
+            "card_number", str(num), inner_x, cur_y, inner_w,
+            PT_CARD_NUM, bold=True, extra=dict(common_extra),
+        )
+        out.append(rt)
+        cur_y += rt.h + GAP_INTRA_BLOCK
+    elif icon:
+        # Иконка — квадрат 32×32, рендерится как кружок в svg_renderer
+        out.append(RenderedText(
+            role="card_icon",
+            lines=[],
+            size_pt=PT_CARD_TITLE,
+            bold=True,
+            x=round(inner_x, 1),
+            y=round(cur_y, 1),
+            w=32.0,
+            h=32.0,
+            extra={**common_extra, "icon_char": str(icon)[:1].upper()},
+        ))
+        cur_y += 32 + GAP_INTRA_BLOCK
+
+    if title:
+        rt = _make_rendered_text(
+            "card_title", title, inner_x, cur_y, inner_w,
+            PT_CARD_TITLE, bold=True, extra=dict(common_extra),
+        )
+        out.append(rt)
+        cur_y += rt.h + GAP_INTRA_BLOCK
+
+    if body:
+        rt = _make_rendered_text(
+            "card_body", body, inner_x, cur_y, inner_w,
+            PT_CARD_BODY, bold=False, extra=dict(common_extra),
+        )
+        out.append(rt)
+
+    return out
+
+
+def _layout_card(
+    block: GridBlock, x: float, y: float, w: float, h: float
+) -> list[RenderedText]:
+    """card: одна или несколько карточек в строку, равные доли по ширине."""
+    c = block.content or {}
+    cards = c.get("cards") or []
+
+    if not cards:
+        return []
+
+    n = len(cards)
+    inner_x = x + CARD_PADDING_PX
+    inner_y = y + CARD_PADDING_PX
+    inner_w = w - 2 * CARD_PADDING_PX
+    inner_h = h - 2 * CARD_PADDING_PX
+
+    total_gap = (n - 1) * GAP_CARDS
+    card_w = max(1.0, (inner_w - total_gap) / n)
+    card_h = inner_h
+
+    out: list[RenderedText] = []
+    for i, card in enumerate(cards):
+        cx = inner_x + i * (card_w + GAP_CARDS)
+        cy = inner_y
+        out.extend(_layout_card_inner(card, i, cx, cy, card_w, card_h))
+
+    return out
+
+
+# ════════════════════════════════════════════════════════════
+#  БЛОК: table — алгоритм ширин колонок (вариант A)
+# ════════════════════════════════════════════════════════════
+
+def _longest_word_width(text: str, size_pt: float, bold: bool) -> float:
+    """Ширина самого длинного слова в строке — минимум, до которого можно сжать."""
+    if not text:
+        return 0.0
+    return max(
+        (measure(word, size_pt, bold) for word in str(text).split()),
+        default=0.0,
+    )
+
+
+def _compute_col_widths(
+    headers: list[str],
+    rows: list[list[str]],
+    inner_w: float,
+    n_cols: int,
+) -> list[float]:
+    """Распределяет inner_w между n_cols колонками.
+
+    Алгоритм:
+        1. natural[j] = max(header_w, max_cell_w) + 2*PAD_TBL_X
+        2. min[j] = max(longest_word_w, MIN_COL_WIDTH_PX) + 2*PAD_TBL_X
+        3. Если sum(natural) <= inner_w → раздать остаток пропорционально natural
+        4. Если sum(natural) > inner_w → сжать пропорционально, но не ниже min
+        5. Если sum(min) > inner_w → physical overflow, вернуть min (warning)
+    """
+    natural: list[float] = []
+    min_w: list[float] = []
+
+    for j in range(n_cols):
+        header_text = headers[j] if j < len(headers) else ""
+        col_cells = [row[j] if j < len(row) else "" for row in rows]
+
+        hw = measure(header_text, PT_TBL_HEAD, bold=True)
+        mcw = max(
+            (measure(str(c), PT_TBL_BODY, bold=False) for c in col_cells),
+            default=0.0,
+        )
+        nat = max(hw, mcw) + 2 * PAD_TBL_X
+
+        lw_header = _longest_word_width(header_text, PT_TBL_HEAD, bold=True)
+        lw_body = max(
+            (_longest_word_width(str(c), PT_TBL_BODY, bold=False) for c in col_cells),
+            default=0.0,
+        )
+        lw = max(lw_header, lw_body, float(MIN_COL_WIDTH_PX)) + 2 * PAD_TBL_X
+
+        natural.append(nat)
+        min_w.append(lw)
+
+    total_natural = sum(natural)
+    total_min = sum(min_w)
+
+    # Случай 1: всё помещается → пропорциональное расширение
+    if total_natural <= inner_w:
+        if total_natural <= 0:
+            return [inner_w / n_cols] * n_cols
+        extra = inner_w - total_natural
+        result = [n + extra * (n / total_natural) for n in natural]
+    # Случай 2: physical overflow → используем min, логируем warning
+    elif total_min > inner_w:
+        logger.warning(
+            f"Таблица: physical overflow (sum(min)={total_min:.0f} > "
+            f"inner_w={inner_w:.0f}), колонки будут урезаны до min"
+        )
+        result = list(min_w)
+    # Случай 3: сжимаем пропорционально до min
+    else:
+        shrinkable = total_natural - total_min
+        need = total_natural - inner_w
+        result = [
+            natural[j] - (natural[j] - min_w[j]) * (need / shrinkable)
+            for j in range(n_cols)
+        ]
+
+    # Корректировка последней колонки на float-остаток
+    diff = inner_w - sum(result)
+    result[-1] += diff
+    return result
+
+
+def _layout_table(
+    block: GridBlock, x: float, y: float, w: float, h: float
+) -> list[RenderedText]:
+    """table: header + rows. Ширины колонок — детерминированный алгоритм."""
+    c = block.content or {}
+    headers = list(c.get("headers") or [])
+    rows = [list(r) for r in (c.get("rows") or [])]
+
+    if not headers and not rows:
+        return []
+
+    n_cols = max(len(headers), max((len(r) for r in rows), default=0), 1)
+    # Нормализация: добиваем пустыми ячейками
+    headers = headers + [""] * (n_cols - len(headers))
+    rows = [r + [""] * (n_cols - len(r)) for r in rows]
+
+    inner_x = x  # таблица занимает всю ширину блока, без CARD_PADDING_PX
+    inner_y = y
+    inner_w = w
+    col_widths = _compute_col_widths(headers, rows, inner_w, n_cols)
+
+    # Накопленные X для каждой колонки
+    cell_x: list[float] = [inner_x]
+    for j in range(n_cols - 1):
+        cell_x.append(cell_x[-1] + col_widths[j])
+
+    out: list[RenderedText] = []
+    cur_y = inner_y
+
+    def _emit_row(cells: list[str], is_header: bool, row_idx: int) -> float:
+        """Раскладывает одну строку, возвращает её высоту."""
+        size_pt = PT_TBL_HEAD if is_header else PT_TBL_BODY
+        bold = is_header
+
+        # Сначала wrap каждой ячейки → собираем строки и высоты
+        per_cell: list[tuple[list[str], float]] = []
+        for j in range(n_cols):
+            text_w = col_widths[j] - 2 * PAD_TBL_X
+            lines = wrap(str(cells[j]), text_w, size_pt=size_pt, bold=bold)
+            text_h = fit_height(lines, size_pt=size_pt)
+            per_cell.append((lines, text_h))
+
+        row_h = max((th for _, th in per_cell), default=0.0) + 2 * PAD_TBL_Y
+
+        for j in range(n_cols):
+            lines, text_h = per_cell[j]
+            cw = col_widths[j]
+            cx = cell_x[j]
+            # Вертикальное центрирование внутри ячейки
+            text_y = cur_y + PAD_TBL_Y + max(0.0, (row_h - 2 * PAD_TBL_Y - text_h) / 2)
+            text_x = cx + PAD_TBL_X
+            text_w = cw - 2 * PAD_TBL_X
+
+            extra = {
+                "row": row_idx,
+                "col": j,
+                "is_header": is_header,
+                "cell_x": round(cx, 1),
+                "cell_y": round(cur_y, 1),
+                "cell_w": round(cw, 1),
+                "cell_h": round(row_h, 1),
+            }
+            out.append(RenderedText(
+                role="cell_header" if is_header else "cell_body",
+                lines=lines,
+                size_pt=size_pt,
+                bold=bold,
+                x=round(text_x, 1),
+                y=round(text_y, 1),
+                w=round(text_w, 1),
+                h=round(text_h, 1),
+                extra=extra,
+            ))
+
+        return row_h
+
+    # Header (row_idx = -1)
+    if any(headers):
+        row_h = _emit_row(headers, is_header=True, row_idx=-1)
+        cur_y += row_h
+
+    # Data rows
+    for i, r in enumerate(rows):
+        row_h = _emit_row(r, is_header=False, row_idx=i)
+        cur_y += row_h
+
+    if cur_y > y + h:
+        logger.warning(
+            f"Таблица {block.block_id}: вертикальный overflow "
+            f"({cur_y - (y + h):.0f}px). Будет видна часть до границы блока."
+        )
+
+    return out
+
+
+# ════════════════════════════════════════════════════════════
+#  БЛОК: placeholder (chart / visual)
+# ════════════════════════════════════════════════════════════
+
+def _layout_placeholder(
+    block: GridBlock, x: float, y: float, w: float, h: float
+) -> list[RenderedText]:
+    """chart/visual — пустой список, svg_renderer сам рисует заглушку."""
+    return []
+
+
+# ── Реестр layout'еров ────────────────────────────────────────
+
+_LAYOUTERS: dict[str, Callable] = {
+    "heading": _layout_heading,
+    "text": _layout_text,
+    "card": _layout_card,
+    "table": _layout_table,
+    "chart": _layout_placeholder,
+    "visual": _layout_placeholder,
+}
+
+
+def _layout_block(
+    block: GridBlock, x: float, y: float, w: float, h: float
+) -> list[RenderedText]:
+    """Диспетчер по semantic_type."""
+    fn = _LAYOUTERS.get(block.semantic_type, _layout_placeholder)
+    return fn(block, x, y, w, h)
 
 
 # ════════════════════════════════════════════════════════════
@@ -521,13 +530,11 @@ def compute_geometry(
     """LayoutPlanV5 (клетки 12×27) → SlideGeometry (пиксели).
 
     Алгоритм:
-        1. Считаем auto-shift для вертикального центрирования
-        2. Для каждого ряда: позиция Y = (row_start_cell + shift) × CELL_HEIGHT
-        3. Для каждого блока в ряду: позиция X = col_start × CELL_WIDTH,
-           размеры (col_span × CELL_WIDTH, height_cells × CELL_HEIGHT)
-        4. Строим внутреннее дерево stretchable для каждого блока отдельно
-        5. compute_layout() на каждом блоке → wrap текста
-        6. Собираем BlockGeometry с абсолютными координатами
+        1. Auto-shift для вертикального центрирования
+        2. Каждый блок: x=col_start*CELL_WIDTH, y=row_start_cell*CELL_HEIGHT
+           (+ margins, + auto_shift)
+        3. Размер блока: col_span × CELL_WIDTH, height_cells × CELL_HEIGHT
+        4. Внутреннее содержимое раскладывает _layout_block — детерминированно
     """
     auto_shift = _compute_auto_shift_cells(layout_plan)
     if auto_shift > 0:
@@ -546,21 +553,16 @@ def compute_geometry(
             block_w_px = block.col_span * CELL_WIDTH
             block_h_px = block.height_cells * CELL_HEIGHT
 
-            ctx = _build_block(block)
-            ctx.row_x = block_x_px
-            ctx.row_y = row_y_px
-            ctx.block_w = block_w_px
-            ctx.block_h = block_h_px
-
             try:
-                ctx.node.compute_layout()
+                rendered = _layout_block(
+                    block, block_x_px, row_y_px, block_w_px, block_h_px
+                )
             except Exception as e:
                 logger.error(
-                    f"Ошибка compute_layout для блока {block.block_id}: {e}"
+                    f"Ошибка layout блока {block.block_id} "
+                    f"({block.semantic_type}): {e}"
                 )
                 raise
-
-            rendered = _collect_rendered_texts(ctx, block_x_px, row_y_px)
 
             blocks_out.append(BlockGeometry(
                 block_id=block.block_id,
@@ -588,7 +590,7 @@ def compute_geometry(
     )
 
     logger.info(
-        f"LayoutEngine v5: слайд {layout_plan.slide_index} → "
+        f"LayoutEngine v5.1: слайд {layout_plan.slide_index} → "
         f"{len(blocks_out)} блоков, auto_shift={auto_shift}"
     )
     return result
